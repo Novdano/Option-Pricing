@@ -1,4 +1,4 @@
-init_price <- 50
+init_price <- 500
 K <- 50 
 r<- 0.0175
 sigma <- 0.2
