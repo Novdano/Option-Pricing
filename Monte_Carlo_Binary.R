@@ -3,12 +3,10 @@ K <- 50
 r<- 0.0175
 sigma <- 0.2
 T <- 5
-M <- 100
-N <- 100
+M <- 1000
+N <- 1000
 
 BS_V0 <- function(S_0, K, r, sigma, T){
-  d2 <- (log(S_0/K) + (r - sigma^2/2)*T)/(sigma * sqrt(T)) 
-  print(sigma)
   res <- pnorm(d2) * exp(-r * T)
   return(res)
 }
@@ -46,9 +44,9 @@ sigmas = c(0.01, 0.1, 0.2, 0.5, 1, 2, 5, 10)
 priceMC = rep(0, length(sigmas))
 priceBS = rep(0, length(sigmas))
 for (i in 1:length(sigmas)){
-  print(sigma[i])
+  print(sigmas[i])
   priceMC[[i]] <- MC_V0(init_price, K, r, sigmas[i], T, M, N)
-  priceBS[[i]] <- BS_V0(init_price, K, r, sigma[i], T)
+  priceBS[[i]] <- BS_V0(init_price, K, r, sigmas[i], T)
 }
 plot(sigmas, priceMC, main = "Price against Sigma", ylab="Price", type="l", col="blue")
 lines(sigmas, priceBS, col="red")
