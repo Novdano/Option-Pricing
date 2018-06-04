@@ -1,0 +1,83 @@
+Initialization
+```{r}
+init_price <- 50
+K <- 50 
+r<- 0.0175
+sigma <- 0.2
+T <- 5
+M <- 10000
+N <- 10000
+```
+
+Code for Black Scholes and Monte Carlo Pricing
+```{r}
+BS_V0 <- function(S_0, K, r, sigma, T){
+  d2 <- (log(S_0/K) + (r - sigma^2/2)*T)/(sigma * sqrt(T)) 
+  res <- pnorm(d2) * exp(-r * T)
+  return(res)
+}
+
+MC_V0 <- function(S_0, K, r, sigma, T, N, M){
+  payoff <- rep(0,M)
+  for (i in 1:M){
+    s <- S_0
+    for (n in 1:N){
+      s <- s + r*s*(T/N) + sigma * s * sample(c(-1,1), 1) * sqrt(T/N)
+    }
+    if (s>=K){
+      payoff[[i]] <- 1
+    } else {
+      payoff[[i]] <- 0
+    }
+  }
+  res <- (1 + r * (T/N))^-N * mean(payoff)
+}
+```
+
+Out of money
+```{r}
+MC <- c(0:19)
+BS <- c(0:19)
+
+for (i in 0:20){
+  MC[i] <- MC_V0(init_price, K+i, r, sigma, T, M, N)
+  BS[i] <- BS_V0(init_price, K+i, r, sigma, T)
+}
+
+plot(50:69, MC, main = "plot K = 50,...,70, M=N=1000", ylab = "Price", xlab="Strike", type = "l", col = "blue")
+lines(50:69, BS, col = "red")
+legend("topleft",
+       c("MonteCarlo","BlackScholes"),
+       fill=c("blue","red"))
+```
+
+Vary in the money Options
+```{r}
+priceMC <- rep(0,20)
+priceBS <- rep(0,20)
+
+for (i in 0:19){
+  priceMC[[i+1]] <- MC_V0(init_price, K-19-i, r, sigma, T, M, N)
+  priceBS[[i+1]] <- BS_V0(init_price, K-19-i, r, sigma, T)
+}
+plot(K-rev(c(0:19)), priceMC, main = "Price against Strike", ylab = "Price" , xlab = "Strike", type = "l", col = "blue")
+lines(K-rev(c(0:19)), priceBS, col="red")
+legend("topleft", c("Monte Carlo", "Black Scholes"), fill=c("blue", "red"))
+```
+
+
+
+Vary sigma
+```{r}
+sigmas = c(0.01, 0.1, 0.2, 0.5, 1, 2, 5, 10)
+priceMC = rep(0, length(sigmas))
+priceBS = rep(0, length(sigmas))
+for (i in 1:length(sigmas)){
+  priceMC[[i]] <- MC_V0(init_price, K, r, sigmas[i], T, M, N)
+  priceBS[[i]] <- BS_V0(init_price, K, r, sigmas[i], T)
+}
+plot(sigmas, priceMC, main = "Price against Sigma", ylab="Price",xlab="Volatility", type="l", col="blue")
+lines(sigmas, priceBS, col="red")
+legend("topleft", c("Monte Carlo", "Black Scholes"), fill = c("blue","red"))
+```
+
