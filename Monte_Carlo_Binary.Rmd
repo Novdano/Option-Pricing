@@ -30,7 +30,7 @@ MC_V0 <- function(S_0, K, r, sigma, T, N, M){
       s <- s + r*s*(T/N) + sigma * s * sample(c(-1,1), 1) * sqrt(T/N)
     }
     if (s>=K){
-      payoff[[i]] <- s-K
+      payoff[[i]] <- 1
     } else {
       payoff[[i]] <- 0
     }
@@ -44,13 +44,15 @@ Out of money
 MC <- c(0:19)
 BS <- c(0:19)
 
-for (i in 0:20){
-  MC[i] <- MC_V0(init_price, K+i, r, sigma, T, M, N)
-  BS[i] <- BS_V0(init_price, K+i, r, sigma, T)
+for (i in 1:20){
+  MC[[i]] <- MC_V0(init_price, K+i, r, sigma, T, M, N)
+  BS[[i]] <- BS_V0(init_price, K+i, r, sigma, T)
 }
 
-plot(50:69, MC, main = "plot K = 50,...,70, M=N=1000", ylab = "Price", xlab="Strike", type = "l", col = "blue")
-lines(50:69, BS, col = "red")
+print(MC)
+print(BS)
+plot(c(50:69), MC, main = "plot K = 50,...,70, M=N=1000", ylab = "Price", xlab="Strike", type = "l", col = "blue")
+lines(c(50:69), BS, col = "red")
 legend("topleft",
        c("MonteCarlo","BlackScholes"),
        fill=c("blue","red"))
