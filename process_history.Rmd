@@ -1,0 +1,58 @@
+---
+title: "Process data call"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+stock_df <- read.csv("AAPL_Data/AAPL_3M_Stock.csv", header = TRUE, col.names = c("Day", "Date", "Closing Price", "Volume", "MAVolume"))
+stock_price <- c(stock_df[3])
+stock_price
+```
+```{r}
+strike_180_price <- read.csv("AAPL_Data/AAPL_3M_Stock.csv", header = TRUE, col.names = c("Day", "Date", "Closing Price", "Volume", "MAVolume"))
+
+```
+
+Calculate implied volatility
+```{r}
+Option_Price <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T)) 
+  d2 <- (log(S_0/K) + (r - sigma^2/2)*T)/(sigma * sqrt(T)) 
+  res <- S_0 * pnorm(d1) - K*pnorm(d2) * exp(-r * T)
+  return(res)
+}
+
+Vega <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T))
+  return (S_0 * sqrt(T) * pnorm(d1))
+}
+
+Implied_Vol <- function(S_0, C_0, K, r, T){
+  curr_sigma <- 100
+  diff <- 10000
+  curr_price <- Option_Price(S_0, K, r, curr_sigma, T)
+  while (abs(curr_price - C_0)>0.0001) {
+    curr_sigma <- curr_sigma + ((C_0 - Option_Price(S_0, K, r, curr_sigma, T))/ Vega(S_0, K, r, curr_sigma, T))
+    curr_price <- Option_Price(S_0, K, r, curr_sigma, T)
+  }
+  return(curr_sigma)
+}
+
+print(Option_Price(50,30,0.0175, 2, 1))
+
+```
+
+```{r}
+sigma <- Implied_Vol(50, 38, 30, 0.0175, 1)
+deduced_price <- Option_Price(50, 30, 0.0175, sigma, 1)
+error <- 38 - deduced_price
+sigma
+error
+```
+

@@ -22,8 +22,8 @@ K <- 50
 r<- 0.0175
 sigma <- 0.2
 T <- 5
-M <- 10000
-N <- 10000
+M <- 100
+N <- 100
 ```
 
 Code for Black Scholes and Monte Carlo Pricing
