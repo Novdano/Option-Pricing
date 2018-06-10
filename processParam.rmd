@@ -1,0 +1,43 @@
+---
+title: "callibrateParam"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+```{r}
+df_atm <- read.csv(file="C:/Users/Novdano/Desktop/SURF/Option-Pricing/AAPL_Data/AAPL_3M_Call_K195_T210619.csv")
+df_stock <- read.csv(file="C:/Users/Novdano/Desktop/SURF/Option-Pricing/AAPL_Data/AAPL_3M_Stock.csv")
+S_0 <- df_stock[1,3]
+C_0 <- df_atm[4,5]
+
+Option_Price <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T)) 
+  d2 <- (log(S_0/K) + (r - sigma^2/2)*T)/(sigma * sqrt(T)) 
+  res <- S_0 * pnorm(d1) - K*pnorm(d2) * exp(-r * T)
+  return(res)
+}
+
+Vega <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T))
+  return (S_0 * sqrt(T) * pnorm(d1))
+}
+
+Newton_Rhapson_Call <- function(S_0,C_0,K,r,T){
+  curr_sigma <-100;
+  diff <- 10000
+  curr_price <- Option_Price(S_0, K, r, curr_sigma, T)
+  while (abs(curr_price - C_0)>0.0001) {
+    curr_sigma <- curr_sigma + ((C_0 - Option_Price(S_0, K, r, curr_sigma, T))/ Vega(S_0, K, r, curr_sigma, T))
+    curr_price <- Option_Price(S_0, K, r, curr_sigma, T)
+  }
+  return(curr_sigma)
+}
+
+IV <- Newton_Rhapson_Call(S_0, C_0, 195, 0.0175, 1)
+IV
+
+```

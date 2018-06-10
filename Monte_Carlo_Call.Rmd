@@ -76,8 +76,8 @@ priceMC <- rep(0,20)
 priceBS <- rep(0,20)
 
 for (i in 0:19){
-  priceMC[[i+1]] <- MC_V0(init_price, K-19+i, r, sigma, T, M, N)
-  priceBS[[i+1]] <- BS_V0(init_price, K-19+i, r, sigma, T)
+priceMC[[i+1]] <- MC_V0(init_price, K-19+i, r, sigma, T, M, N)
+priceBS[[i+1]] <- BS_V0(init_price, K-19+i, r, sigma, T)
 }
 plot(K-rev(c(0:19)), priceMC, main = "Price against Strike", ylab = "Price" , xlab = "Strike", type = "l", col = "blue")
 lines(K-rev(c(0:19)), priceBS, col="red")

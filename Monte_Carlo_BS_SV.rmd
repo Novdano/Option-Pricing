@@ -84,7 +84,7 @@ SV <- rep(0,20)
 for (i in 1:20){
   MC[[i]] <- MC_BSV0(init_price, K+i, r, sigma, T, M, N)
   BS[[i]] <- BS_V0(init_price, K+i, r, sigma, T)
-  SV[[i]] <- MC_SV0(init_price, K+i, r, sigma, 0, 0, 0 ,-0, T, M, N)
+  SV[[i]] <- MC_SV0(init_price, K+i, r, sigma^2, 5, 0.02^2, 0.02 ,-0.0123, T, M, N)
 }
 print(MC)
 print(BS)
@@ -126,6 +126,23 @@ plot(sigmas, priceMC, main = "Price against Sigma", ylab="Price",xlab="Volatilit
 lines(sigmas, priceBS, col="red")
 legend("topleft", c("Monte Carlo", "Black Scholes"), fill = c("blue","red"))
 ```
+```{r}
+priceMC <- rep(0,20)
+priceBS <- rep(0,20)
+priceSV <- rep(0,20)
 
+for (i in 0:19){
+  priceMC[[i+1]] <- MC_V0(init_price, K-19+i, r, sigma, T, M, N)
+  priceBS[[i+1]] <- BS_V0(init_price, K-19+i, r, sigma, T)
+  priceSV[[i+1]] <- MC_SV0(init_price, K-19+i, r, sigma, 0.01, 0.02, 0 ,0, T, M, N)
+}
+print(priceMC)
+print(priceBS)
+print(priceSV)
+plot(K-rev(c(0:19)), priceMC, main = "Price against Strike", ylab = "Price" , xlab = "Strike", type = "l", col = "blue")
+lines(K-rev(c(0:19)), priceBS, col="red")
+lines(K-rev(c(0:19)), priceSV, col = "green")
+legend("topleft", c("Monte Carlo", "Black Scholes", "SV"), fill=c("blue", "red","green"))
+```
 
 
