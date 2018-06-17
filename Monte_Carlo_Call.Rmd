@@ -36,20 +36,20 @@ BS_V0 <- function(S_0, K, r, sigma, T){
 }
 
 MC_V0 <- function(S_0, K, r, sigma, T, N, M){
-  payoff <- rep(0,M)
+  payoff <- 0
   for (i in 1:M){
     s <- S_0
     for (n in 1:N){
       s <- s + r*s*(T/N) + sigma * s * rnorm(1) * sqrt(T/N)
     }
     if (s>K){
-      payoff[[i]] <- s-K
-    } else {
-      payoff[[i]] <- 0
-    }
+      payoff <- payoff + s-K
+    } 
   }
-  res <- (1 + r * (T/N))^-N * mean(payoff)
+  res <- (1 + r * (T/N))^-N * payoff
 }
+
+BS_V0(50,50,0.0175,0.02,1)
 ```
 
 Out of money

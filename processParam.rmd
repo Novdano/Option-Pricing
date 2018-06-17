@@ -43,7 +43,47 @@ IV
 ```
 
 ```{r}
-df_stock[complete.cases(df_stock[,3]),3]
+df_stock_cp <- df_stock[complete.cases(df_stock[,3]),3]
+Y <- rep(0,length(df_stock_cp)-1)
+for (i in 2 :length(df_stock_cp)-1){
+  if (i < length(df_stock_cp)){
+    Y[[i]] = log(df_stock_cp[[i]]/df_stock_cp[[i+1]])
+  }
+}
+sigma <- sd(Y)
+sigma*sqrt(252)
+
+beta_0 <- mean(Y)
+sigma <- sqrt((mean(df_stock_cp) - beta_0)*2)
+
+Y_hat = rep(0, length(df_stock_cp)-1)
+for (i in 2:length(df_stock_cp)-1){
+  Y_hat[[i]] <- beta_0+sigma*sqrt(1)*rnorm(1);
+}
+
+vol<-sd(Y - Y_hat)
+vol
+
 
 ```
+```{r}
+df_stock_cp <- df_stock[complete.cases(df_stock[,3]),3]
+Y <- rep(0,length(df_stock_cp)-1)
+for (i in 2 :length(df_stock_cp)-1){
+  if (i < length(df_stock_cp)){
+    Y[[i]] = log(df_stock_cp[[i]]/df_stock_cp[[i+1]])
+  }
+}
 
+lambda = 0.97
+
+Y
+res = 0;
+for (i in (2:length(df_stock_cp)-1)){
+  res = res + Y[[i]]^2 * lambda^(i)
+}
+res = res * (1-lambda)
+sigma = sqrt(res)
+sigma
+
+```

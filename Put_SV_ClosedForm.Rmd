@@ -1,0 +1,41 @@
+---
+title: "Put_SV_ClosedForm"
+output: html_document
+---
+
+```{r}
+C <- function(tau, phi, b_j, u_j, rho, miu, kappa, theta){
+  d <- sqrt((complex(imaginary=rho*miu*phi)-b_j)^2 - miu^2*(complex(imaginary=(2*u_j*phi)) - phi^2))
+  g = (b_j -complex(imaginary=rho*phi*miu) + d)/(b_j -complex(imaginary=rho*phi*miu) - d)
+  return (complex(real=0,imaginary=r * phi * tau) + (kappa*theta/miu^2) * (b_j - complex(imaginary = rho * miu *phi)) + d)*tau - 2*log((1-g*exp(d*tau))/(1-g))
+}
+
+D <- function(tau, phi, b_j, u_j, rho, miu, kappa, theta){
+  d <- sqrt((complex(imaginary=rho*miu*phi)-b_j)^2 - miu^2*(complex(imaginary=(2*u_j*phi)) - phi^2))
+  g = (b_j -complex(imaginary=rho*phi*miu) + d)/(b_j -complex(imaginary=rho*phi*miu) - d)
+  return ((b_j - complex(imaginary=rho*miu*phi) + d) / miu^2) * (1 - exp(d*tau))/(1-g*exp(d*tau))
+}
+
+f <- function(t,T, phi, b_j, u_j, rho, miu, kappa, theta, x, v){}
+    return (exp(C(T-t, phi,b_j, u_j, rho, miu, kappa, theta) + D(T-t, phi,b_j, u_j, rho, miu, kappa, theta)*v + complex(imaginary=phi*x)))
+}
+
+
+
+P <- function(t,T, phi, b_j, u_j, rho, miu, kappa, theta, x, v){
+  integrand <- function(phi){
+    return (Re(exp(complex(imaginary=-phi* log(K))) *  f(t,T, phi, b_j, u_j, rho, miu, kappa, theta, x, v)/complex(imaginary=phi)))
+  }
+  return (1/2 + (1/pi)*integrate(integrand, lower=0, upper=1)$value)
+}
+
+Call_SV <- function(S, K, v, r, kappa, theta, miu, lambda, rho, t, T){
+  b1 = kappa + lambda - rho*miu
+  b2= kappa + lambda
+  return (S * P(t,T, phi, b1, 1/2, rho, miu, kappa, theta, log(S), v)) - K * exp(-r * (T-t)) * P(t,T, phi, b2,-1/2, rho, miu, kappa, theta, log(S), v)
+}
+
+for (K in 30:70){
+  print(Call_SV(50,50,0.02,0.02, 3, 0.1, 0.2, 0, -0.3, 0, 1))
+}
+```

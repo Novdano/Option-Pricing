@@ -18,7 +18,7 @@ output:
 Initialization
 ```{r}
 init_price <- 50
-K <- 50
+K <- 30
 r<- 0.05
 sigma <- 0.02
 T <- 5
@@ -57,12 +57,15 @@ MC_SV0 <- function(S_0, K, r, sigma_0, kappa, theta, miu, rho, T, N, M){
   for (i in 1:M){
     s <- S_0
     v<- sigma_0
+    vols = rep(0,N)
     for (n in 1:N){
       gts = rnorm(1)
       gtv = rnorm(1)
       s <- s + r*s*(T/N) + sqrt(v) * s * gts * sqrt(T/N)
       v <- v + kappa*(theta-v)*(T/N) + miu*sqrt(v)*sqrt(T/N)*(rho*(gts) + sqrt(1-rho^2)*gtv)
+      #vols[[n]] = v
     }
+    #plot(c(1:N), vols,main = "vol evolution",ylab="Vols",xlab="Time",type="l")
     if (s>K){
       payoff[[i]] <- s-K
     } else{
@@ -79,19 +82,23 @@ Out of money
 ```{r}
 MC <- rep(0,20)
 BS <- rep(0,20)
-SV <- rep(0,20)
+SV_10k <- rep(0,20)
+SV_20k <- rep(0,20)
+SV_30k <- rep(0,20)
 
-for (i in 1:20){
+for (i in 1:40){
   MC[[i]] <- MC_BSV0(init_price, K+i, r, sigma, T, M, N)
   BS[[i]] <- BS_V0(init_price, K+i, r, sigma, T)
-  SV[[i]] <- MC_SV0(init_price, K+i, r, sigma^2, 5, 0.02^2, 0.02 ,-0.0123, T, M, N)
+  SV_10k[[i]] <- MC_SV0(init_price, K+i, r, sigma^2, 10, 0.004, 0.05 ,-0.8, T, M, N)
+  #SV_20k[[i]] <- MC_SV0(init_price, K+i, r, sigma^2, 0.1 , 0.02, 0.00 ,-0, T, M, N)
+  #SV_30k[[i]] <- MC_SV0(init_price, K+i, r, sigma^2, 0.5, 0.02, 0.00 ,-0, T, M, N)
 }
-print(MC)
-print(BS)
-print(SV)
-plot(c(50:69), MC, main = "plot K = 50,...,70", ylab = "Price", xlab="Strike", type = "l", col = "blue")
-lines(50:69, BS, col = "red")
-lines(50:69, SV, col = "green")
+
+plot(c(31:70), MC, main = "plot K = 50,...,70", ylab = "Price", xlab="Strike", type = "l", col = "blue", ylim=c(0,40))
+lines(31:70, BS, col = "red")
+lines(31:70, SV_10k, col = "green")
+#lines(21:40, SV_20k, col = "pink")
+#lines(21:40, SV_30k, col = "black")
 legend("topleft",
        c("MonteCarlo","BlackScholes", "SV"),
        fill=c("blue","red", "green"))
