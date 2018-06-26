@@ -1,0 +1,134 @@
+---
+title: "Heston Calibration"
+output: html_document
+---
+
+Initialization
+```{r}
+init_price <- 50
+K <- 30
+r<- 0.02
+sigma <- 0.2
+T <- 1
+M <- 100
+N <- 100
+```
+
+Code for Black Scholes and Monte Carlo Pricing
+```{r}
+BS_V0 <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T)) 
+  d2 <- (log(S_0/K) + (r - sigma^2/2)*T)/(sigma * sqrt(T)) 
+  res <- S_0 * pnorm(d1) - K*pnorm(d2) * exp(-r * T)
+  return(res)
+}
+
+MC_BSV0 <- function(S_0, K, r, sigma, T, N, M){
+  payoff <- rep(0,M)
+  for (i in 1:M){
+    s <- S_0
+    for (n in 1:N){
+      s <- s + r*s*(T/N) + sigma * s * rnorm(1) * sqrt(T/N)
+    }
+    if (s>K){
+      payoff[[i]] <- s-K
+    } else{
+      payoff[[i]] <- 0
+    }
+  }
+  res <- (1 + r * (T/N))^-N * (mean(payoff))
+  return (res)
+}
+
+MC_SV0 <- function(S_0, K, r, sigma_0, kappa, theta, miu, rho, T, N, M){
+  payoff <- rep(0,M)
+  for (i in 1:M){
+    s <- S_0
+    v<- sigma_0
+    vols = rep(0,N)
+    for (n in 1:N){
+      gts = rnorm(1)
+      gtv = rnorm(1)
+      s <- s + r*s*(T/N) + sqrt(v) * s * gts * sqrt(T/N)
+      v <- v + kappa*(theta-v)*(T/N) + miu*sqrt(v)*sqrt(T/N)*(rho*(gts) + sqrt(1-rho^2)*gtv)
+      #vols[[n]] = v
+    }
+    #plot(c(1:N), vols,main = "vol evolution",ylab="Vols",xlab="Time",type="l")
+    if (s>K){
+      payoff[[i]] <- s-K
+    } else{
+      payoff[[i]] <- 0
+    }
+  }
+  res <- (1 + r * (T/N))^-N * mean(payoff)
+  return (res)
+}
+
+```
+
+```{r}
+library("NMOF")
+c0 <- callHestoncf(50, 30, 1, 0.02, 0, 0.2^2, 0.001, -0, 1, 0.0001, implVol = FALSE)
+c0
+```
+
+```{r}
+MC <- rep(0,40)
+BS <- rep(0,40)
+SV_10k <- rep(0,40)
+SV_20k <- rep(0,40)
+SV_30k <- rep(0,40)
+Closed_Form_k1 <- rep(0,40)
+Closed_Form_k2 <- rep(0,40)
+Closed_Form_k3 <- rep(0,40)
+
+for (i in 1:40){
+  #MC[[i]] <- MC_BSV0(init_price, K+i, r, sigma, T, M, N)
+  #BS[[i]] <- BS_V0(init_price, K+i, r, sigma, T)
+  #MC_SV0 <- function(S_0, K, r, sigma_0, kappa, theta, miu, rho, T, N, M)
+  k1 = 0.1
+  k2 = 0.5
+  k3 = 1
+  theta1 = 0.0001
+  theta2= 0.0001
+  theta3 = 0.0001
+  SV_10k[[i]] <- MC_SV0(init_price, K+i, r, sigma^2, k1, 0.001, 0.0001 ,-0, T, M, N)
+  SV_20k[[i]] <- MC_SV0(init_price, K+i, r, sigma^2, k2, 0.05, 0.0001 ,-0, T, M, N)
+  SV_30k[[i]] <- MC_SV0(init_price, K+i, r, sigma^2, k3, 0.1, 0.0001 ,-0, T, M, N)
+  #callHestoncf(S, X, tau, r, q, v0, vT, rho, k, sigma, implVol = FALSE)
+  Closed_Form_k1[[i]] <- callHestoncf(init_price, K+i, T, r, 0, sigma^2, 0.001, -0, k1, theta1, implVol = FALSE)
+  Closed_Form_k2[[i]] <- callHestoncf(init_price, K+i, T, r, 0, sigma^2, 0.001, -0, k2, theta2, implVol = FALSE)
+  Closed_Form_k3[[i]] <- callHestoncf(init_price, K+i, T, r, 0, sigma^2, 0.001, -0, k3, theta3, implVol = FALSE)
+}
+print("1")
+print(SV_10k)
+print(SV_20k)
+print(SV_30k)
+
+
+plot(c(31:70), MC, main = "kappa1", ylab = "Price", xlab="Strike", type = "l",  ylim=c(0,40))
+
+lines(31:70, SV_10k, col = "green")
+lines(31:70, Closed_Form_k1, col = "pink")
+legend("topright",
+       c("SVO", "Closed_Form"),
+       fill=c("green", "pink"))
+
+plot(c(31:70), MC, main = "kappa2", ylab = "Price", xlab="Strike", type = "l",  ylim=c(0,40))
+
+lines(31:70, SV_20k, col = "green")
+lines(31:70, Closed_Form_k2, col = "pink")
+legend("topright",
+       c("SVO", "Closed_Form"),
+       fill=c("green", "pink"))
+
+plot(c(31:70), MC, main = "kappa3", ylab = "Price", xlab="Strike", type = "l",  ylim=c(0,40))
+
+lines(31:70, SV_30k, col = "green")
+lines(31:70, Closed_Form_k3, col = "pink")
+legend("topright",
+       c("SVO", "Closed_Form"),
+       fill=c("green", "pink"))
+
+```
+
