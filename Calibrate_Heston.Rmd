@@ -2,3 +2,56 @@
 title: "Heston Calibration"
 output: html_document
 ---
+
+```{r}
+#install.packages("NMOF")
+library("NMOF")
+```
+
+SV Monte Carlo Function
+```{r}
+MSE <- function(vec1, vec2){
+  ms <- (vec1-vec2)^2
+  return ((sum(ms))^0.5)/length(vec1)
+}
+
+
+
+```
+
+
+
+
+```{r}
+stock <- read.csv("BABA_Stock.csv");
+short_mat <- read.csv("BABA_190K_20th7.csv");
+long_mat <- read.csv("BABA_190K_21st9.csv")
+
+stock_px <- stock[,3]
+shortT_px <- short_mat[,6]
+longT_px <- long_mat[,6]
+
+
+stock_px <- c(na.exclude(stock_px)) [1:27]
+shortT_px <- c(na.exclude(shortT_px))[1:27]
+longT_px <- c(na.exclude(longT_px)) [1:27]
+
+short_opt <- function(param_vectors){
+  kappa <- param_vectors[[1]]
+  theta <- param_vectors[[2]]
+  miu <- param_vectors[[3]]
+  rho<- param_vectors[[4]]
+  sv_est = rep(0, length(stock_px))
+  for (i in 1:length(stock_px)){
+    sv_est[[i]] <- callHestoncf(stock_px[[i]], 190, 1/12, 0.02,0,0.2, theta, rho, kappa, miu)
+  }
+  return (MSE(sv_est, shortT_px))
+}
+
+params <- nlminb(c(0.5, 0.002, 0.01, 0), short_opt, lower = c(0,0,0,-1), upper = c(1, 1, 0.01, 1))
+
+params
+
+
+```
+
