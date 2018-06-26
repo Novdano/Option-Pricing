@@ -1,4 +1,0 @@
----
-title: "Heston Calibration"
-output: html_document
----
