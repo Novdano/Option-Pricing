@@ -1,0 +1,94 @@
+---
+title: "BSvsSV"
+output: pdf_document
+---
+
+Initialization
+```{r}
+init_price <- 50
+K <- 30
+r<- 0.05
+sigma <- 0.02
+T <- 5
+M <- 100
+N <- 100
+```
+
+Code for Black Scholes and Monte Carlo Pricing
+```{r}
+BS_V0 <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T)) 
+  d2 <- (log(S_0/K) + (r - sigma^2/2)*T)/(sigma * sqrt(T)) 
+  res <- S_0 * pnorm(d1) - K*pnorm(d2) * exp(-r * T)
+  return(res)
+}
+
+MC_BSV0 <- function(S_0, K, r, sigma, T, N, M){
+  payoff <- rep(0,M)
+  for (i in 1:M){
+    s <- S_0
+    for (n in 1:N){
+      s <- s + r*s*(T/N) + sigma * s * rnorm(1) * sqrt(T/N)
+    }
+    if (s>K){
+      payoff[[i]] <- s-K
+    } else{
+      payoff[[i]] <- 0
+    }
+  }
+  res <- (1 + r * (T/N))^-N * (mean(payoff))
+  return (res)
+}
+
+MC_SV0 <- function(S_0, K, r, sigma_0, kappa, theta, miu, rho, lambda, T, N, M){
+  payoff <- rep(0,M)
+  for (i in 1:M){
+    s <- S_0
+    v<- sigma_0
+    vols = rep(0,N)
+    for (n in 1:N){
+      gts = rnorm(1)
+      gtv = rnorm(1)
+      s <- s + r*s*(T/N) + sqrt(v) * s * gts * sqrt(T/N)
+      v <- v + kappa*(theta-v)*(T/N) - v*lambda*(T/N) + miu*sqrt(v)*sqrt(T/N)*(rho*(gts) + sqrt(1-rho^2)*gtv)
+      #vols[[n]] = v
+    }
+    #plot(c(1:N), vols,main = "vol evolution",ylab="Vols",xlab="Time",type="l")
+    if (s>K){
+      payoff[[i]] <- s-K
+    } else{
+      payoff[[i]] <- 0
+    }
+  }
+  res <- (1 + r * (T/N))^-N * mean(payoff)
+  return (res)
+}
+
+```
+
+```{r}
+MC <- rep(0,40)
+BS <- rep(0,40)
+SV_10k <- rep(0,40)
+SV_20k <- rep(0,40)
+SV_30k <- rep(0,40)
+
+for (i in 1:40){
+  MC[[i]] <- MC_BSV0(init_price, K+i, r, sigma, T, M, N)
+  BS[[i]] <- BS_V0(init_price, K+i, r, sigma, T)
+  SV_10k[[i]] <- MC_SV0(init_price, K+i, r, sigma^2, 1, 0.1, 0.001 ,-0, 1, T, M, N)
+  SV_20k[[i]] <- MC_SV0(init_price, K+i, r, sigma^2, 1 , 0.1, 0.001 ,-0, 10, T, M, N)
+  SV_30k[[i]] <- MC_SV0(init_price, K+i, r, sigma^2, 1, 0.1, 0.001 ,-0, 20, T, M, N)
+}
+
+plot(c(31:70), MC, main = "plot K = 50,...,70", ylab = "Price", xlab="Strike", type = "l", col = "blue", ylim=c(0,40))
+lines(31:70, BS, col = "red")
+lines(31:70, SV_10k, col = "green")
+lines(31:70, SV_20k, col = "pink")
+lines(31:70, SV_30k, col = "black")
+legend("topright",
+       c("MonteCarlo","BlackScholes", "0.001T","0.05T","0.01T"),
+       fill=c("blue","red", "green","pink","black"))
+```
+
+

@@ -1,0 +1,89 @@
+---
+title: "Delta_Hedge_Simulation"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+```{r}
+BS_Call <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T)) 
+  d2 <- (log(S_0/K) + (r - sigma^2/2)*T)/(sigma * sqrt(T)) 
+  res <- S_0 * pnorm(d1) - K*pnorm(d2) * exp(-r * T)
+  return(res)
+}
+
+BS_Put <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T)) 
+  d2 <- (log(S_0/K) + (r - sigma^2/2)*T)/(sigma * sqrt(T)) 
+  res <- -S_0 * pnorm(-d1) + K*pnorm(-d2) * exp(-r * T)
+  return(res)
+}
+
+Call_Delta <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T)) 
+  res <- pnorm(d1)
+  return(res)
+}
+
+Put_Delta <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T)) 
+  res <- -(pnorm(-d1))
+  return(res)
+}
+```
+
+Code for simulating straddle hedge
+```{r}
+Hedge_Simulation <- function(S_0, K, r, sigma, T, M, N, reb_t){
+  pnl_mast <- 0
+  reb_n <- round(reb_t * N)
+  for (i in 1:M){
+    s  <- S_0
+    #if long, the pnl is negative, if short then pnl is positive
+    pnl_start <- -BS_Call(S_0, K, r, sigma, T) - BS_Put(S_0,K,r,sigma,T)
+    num_stock <- Call_Delta(S_0, K, r, sigma, T) + Put_Delta(S_0,K,r,sigma, T)
+    pnl_start <- pnl_start + num_stock*S_0
+    for (n in 1:N){
+      #print(num_stock)
+      s <- s + r*s*(T/N) + sigma * s * rnorm(1) * sqrt(T/N)
+      if (n %% reb_n == 0){
+        #print(T-(n/N)*T)
+        d_call <- Call_Delta(s, K, r, sigma, T-(n/N)*T)
+        d_put <- Put_Delta(s, K, r, sigma, T-(n/N)*T)
+        d_tot <- d_call + d_put
+        num_stock <- d_tot - num_stock 
+        #print(num_stock)
+        pnl_start <- pnl_start + num_stock * s - num_stock * 0.005
+      }
+    }
+    if (s>=K){
+      pnl_start <- pnl_start + s-K
+    } else {
+      pnl_start <- pnl_start + K-s
+    }
+    pnl_mast <- pnl_mast + pnl_start - num_stock * s
+  }
+  return (pnl_mast/M)
+}
+```
+
+Simulate straddle GM
+```{r}
+r_T <- c(1/365, 1/52, 1/12, 1/2, 1)
+res <- rep(0,5)
+for (i in 1:5){
+  res[[i]] <- Hedge_Simulation(43,43,0.02,0.023,1,100,1000,r_T[[i]])
+}
+#print("res")
+#print(res)
+plot(r_T, res, main = "PnL against rebalancing", ylab = "PnL" , xlab = "rebalance period", type = "l", col = "blue")
+
+
+```
+
+
+
