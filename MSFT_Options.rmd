@@ -1,0 +1,132 @@
+---
+title: "CalibrateHestonMSFT"
+output: html_document
+---
+```{r}
+#install.packages("pracma")
+library("NMOF")
+library("pracma")
+```
+
+```{r}
+SGD <- function(kappa, theta, miu, rho, deltaK, deltaT, deltaM, deltaR, alpha){
+  dfdk = (short_opt(c(kappa + deltaK, theta, miu, rho)) - short_opt(c(kappa - deltaK, theta, miu, rho)))/2*deltaK
+  dfdt = (short_opt(c(kappa, theta + deltaT, miu, rho)) - short_opt(c(kappa, theta-deltaT, miu, rho)))/2*deltaT
+  dfdm = (short_opt(c(kappa, theta, miu+deltaM, rho)) - short_opt(c(kappa, theta, miu-deltaM, rho)))/2*deltaM
+  dfdr = (short_opt(c(kappa, theta, miu, rho+ deltaR)) - short_opt(c(kappa , theta, miu, rho -deltaR)))/2*deltaR
+  newK = kappa - alpha*dfdk
+  newT = theta - alpha*dfdt
+  newM = miu - alpha*dfdm
+  newR = rho - alpha*dfdr
+  return (c(newK, newT, newM, newR))
+}
+```
+
+```{r}
+options = c(7.7,6.4,5.02,2.79,1.42);
+K = c(95,97.5,100,105,110);
+S = 100;
+
+MSE <- function(vec1, vec2){
+  ms <- (vec1-vec2)^2
+  return ((sum(ms))^0.5)/length(vec1)
+}
+
+
+MSFT_Opt <- function(param_vectors){
+  a <- param_vectors[[1]]
+  theta <- param_vectors[[2]]
+  miu <- param_vectors[[3]]
+  rho<- param_vectors[[4]]
+  kappa <- (a + miu^2)/(2*theta)
+  sv_est = rep(0, length(stock_px))
+  for (i in 1:length(K)){
+    sv_est[[i]] <- callHestoncf(S, K[[i]], 1/3, 0.02, 0 ,0.16, theta, rho, kappa, miu)
+  }
+  return (MSE(sv_est, options))
+}
+
+```
+
+```{r}
+grid_search <- function(kappa, theta, deltaK, deltaT){
+  min <- short_opt(c(kappa, theta, deltaK, deltaT))
+  minK <- kappa
+  minT <- theta
+  for(dk in c(-deltaK, 0, deltaK)){
+    for (dt in c(-deltaT, 0, deltaT)){
+      curr <- short_opt(c(kappa + dk, theta + dt, 0.001, -0.2))
+      if (curr<min){
+        min <- curr
+        minK <- kappa + dk
+        minT <- theta + dt
+      }
+    }
+  }
+  if (minK == kappa && minT == theta){
+    deltaK <- deltaK/2
+    deltaT <- deltaT/2
+  } 
+  return (c(minK, minT,deltaK, deltaT))
+  
+}
+
+```
+
+Calibration code grid search
+```{r}
+oldk <- 0.5
+oldt <- 0.7
+newk <- 0.5
+newt<- 0.7
+deltaK <- 0.01
+deltaT <- 0.01
+new_vecs<-c(2,1)
+while (deltaK>0.0001 && deltaT > 0.0001){
+  oldk<-newk
+  oldt<-newt
+  old_vecs <- c(oldk, oldt, oldm, oldr)
+  new_vecs <- grid_search(oldk, oldt, deltaK, deltaT)
+  newk<- new_vecs[[1]]
+  newt <- new_vecs[[2]]
+  deltaK <- new_vecs[[3]]
+  deltaT <- new_vecs[[4]]
+}
+
+print(newk)
+print(newt)
+```
+
+Callibration code SGD
+```{r}
+oldk <- 0.3
+oldt <- 0.2
+oldm <- 0.001
+oldr <- -0.2
+newk <- 0.3
+newt <- 0.2
+newm <- 0.001
+newr <- -0.2
+old_vecs<-c(1,1,1,1)
+new_vecs<-c(99,99,99,99)
+while (MSE(old_vecs,new_vecs)>1e-5){
+  oldk<-newk
+  oldt<-newt
+  oldm <- newm
+  oldr <- newr
+  old_vecs <- c(oldk, oldt, oldm, oldr)
+  new_vecs <- SGD(oldk, oldt,oldm,oldr, 0.01, 0.01,0.01,0.01, 0.1)
+  newk<- new_vecs[[1]]
+  newt <- new_vecs[[2]]
+  newm <- new_vecs[[3]]
+  newr <- new_vecs[[4]]
+  #print(MSE(old_vecs,new_vecs))
+}
+
+print(MSE(old_vecs,new_vecs))
+
+print(newk)
+print(newt)
+print(newm)
+print(newr)
+```
