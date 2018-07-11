@@ -1,0 +1,98 @@
+---
+title: "Dummy_Search"
+output: html_document
+---
+
+```{r}
+#install.packages("pracma")
+library("NMOF")
+library("pracma")
+```
+
+```{r}
+kap <- 0.3
+the <- 0.2
+rh <- -0.2
+mi <- 0.001
+
+MSE <- function(vec1, vec2){
+  ms <- (vec1-vec2)^2
+  return ((sum(ms))^0.5)/length(vec1)
+}
+```
+
+```{r}
+strikes = c(193,190,195,187,182,199,181,188,197,202)
+datas <- rep(0,length(strikes))
+for (i in 1:length(strikes)){
+  datas[[i]] <- callHestoncf(190, strikes[[i]], 1, 0.02,0,0.04, theta, rho, kappa, miu)
+}
+
+```
+
+```{r}
+dummy_opt <- function(param_vectors){
+  a <- param_vectors[[1]]
+  theta <- param_vectors[[2]]
+  miu <- param_vectors[[3]]
+  rho<- param_vectors[[4]]
+  kappa <- (a + miu^2)/(2*theta)
+  sv_est = rep(0, length(stock_px))
+  for (i in 1:length(datas)){
+    sv_est[[i]] <- callHestoncf(190, strikes[[i]], 1, 0.02,0,0.04, theta, rho, kappa, miu)
+  }
+  return (MSE(sv_est, datas))
+}
+
+grid_search_dumdum <- function(kappa, theta, deltaK, deltaT){
+  min <- dummy_opt(c(kappa, theta, deltaK, deltaT))
+  minK <- kappa
+  minT <- theta
+  for(dk in c(-deltaK, 0, deltaK)){
+    for (dt in c(-deltaT, 0, deltaT)){
+      curr <- dummy_opt(c(kappa + dk, theta + dt, 0.001, -0.2))
+      if (curr<min){
+        min <- curr
+        minK <- kappa + dk
+        minT <- theta + dt
+      }
+    }
+  }
+  if (minK == kappa && minT == theta){
+    deltaK <- deltaK/2
+    deltaT <- deltaT/2
+  } 
+  return (c(minK, minT,deltaK, deltaT))
+}
+```
+
+```{r}
+oldk <- 0.6
+oldt <- 0.4
+newk <- 0.6
+newt<- 0.4
+deltaK <- 0.01
+deltaT <- 0.01
+new_vecs<-c(2,1)
+while (deltaK>0.00000001 && deltaT > 0.00000001){
+  oldk<-newk
+  oldt<-newt
+  old_vecs <- c(oldk, oldt, oldm, oldr)
+  new_vecs <- grid_search_dumdum(oldk, oldt, deltaK, deltaT)
+  newk<- new_vecs[[1]]
+  newt <- new_vecs[[2]]
+  deltaK <- new_vecs[[3]]
+  deltaT <- new_vecs[[4]]
+  # print(deltaK)
+  # print(deltaT)
+  # print("values")
+  # print(newk)
+  # print(newt)
+}
+
+# print(newk)
+# print(newt)
+```
+
+
+

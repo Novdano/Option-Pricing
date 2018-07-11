@@ -1,12 +1,27 @@
 global options
 global K
 global S
-options = [7.7,6.4,5.02,2.79,1.42];
+options = [7.7;6.4;5.02;2.79;1.42];
 K = [95,97.5,100,105,110];
 S = 100;
 
-opts = optimoptions(@lsqnonlin, 'MaxFunctionEvaluations', 15000, 'MaxIterations',15000,'OptimalityTolerance',1e-20,'FunctionTolerance',1e-20,'StepTolerance', 1.000e-20);
-params = lsqnonlin(@msftOPT, [0.2, 0.3], [0,0], [Inf,Inf], opts);
+% opts = optimoptions(@lsqnonlin, 'MaxFunctionEvaluations', 15000, 'MaxIterations',15000,'OptimalityTolerance',1e-20,'FunctionTolerance',1e-20,'StepTolerance', 1.000e-20);
+% params = lsqnonlin(@msftOPT, [0.2, 0.3], [0,0], [Inf,Inf], opts);
+
+x = 0.05:0.01:1.5;
+y = 0.05:0.01:1;
+size(x)
+size(y)
+z = zeros(length(y),length(x));
+size(z)
+for k = x
+    for t = y
+        z(int32(t*100-4),int32(k*100-4)) = sum(msftOPT([k,t,0.001, -0.3]).^2);
+    end
+end
+
+mesh(x,y,z)
+
 
 
 function f = msftOPT(param_vecs)
