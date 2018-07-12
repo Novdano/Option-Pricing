@@ -6,7 +6,7 @@ output: html_document
 ```{r}
 #install.packages("pracma")
 library("NMOF")
-library("pracma")
+#library("pracma")
 ```
 
 ```{r}
@@ -107,36 +107,50 @@ plot(alphas, Err, "l")
 
 
 ```{r}
-grid_search_SABR <- function(alpha, deltaA){
+grid_search_SABR <- function(alpha, rho, deltaA, deltaR){
   min <- MSFT_Opt_SABR(c(alpha, 1, 0.3, 0.4))
   minA <- alpha
+  minR <- rho
   for(da in c(-deltaA, 0, deltaA)){
-      curr <- MSFT_Opt_SABR(c(alpha+da, 1, -0.2, 0.4))
+    for(dr in c(-deltaR, 0, deltaR)){
+      curr <- MSFT_Opt_SABR(c(alpha+da, 1, rho+dr, 0.4))
       if (curr<min){
         min <- curr
         minA <- alpha + da
+        minR <- rho + dr
       }
+    }
   }
   if (minA == alpha){
     deltaA <- deltaA/2
+    deltaR <- deltaR/2
   } 
-  return (c(minA, deltaA))
+  return (c(minA, minR, deltaA, deltaR))
 }
 
 oldA <- 0.2
+oldR <- -0.2
 newA <- 0.2
+newR <- -0.2
 deltaA <- 0.01
-new_vecs<-c(2,1)
-while (deltaA>0.0001){
+deltaR <- 0.01
+new_vecs<-c(4,1)
+while (deltaA>0.00001 && deltaR > 0.00001){
   oldA <- newA
-  new_vecs <- grid_search_SABR(oldA, deltaA)
+  oldR <- newR
+  new_vecs <- grid_search_SABR(oldA, oldR, deltaA, deltaR)
   newA <- new_vecs[[1]]
-  deltaA<- new_vecs[[2]]
+  newR <- new_vecs[[2]]
+  deltaA<- new_vecs[[3]]
+  deltaR<- new_vecs[[4]]
   print(newA)
+  print(newR)
   print(deltaA)
+  print(deltaR)
 }
 
 print(newA)
+print(newR)
 
 ```
 
@@ -240,7 +254,7 @@ Calculate IV of each option by SABR model
 SABR_prices <- rep(0,length(K))
 IV <- rep(0,length(K))
 for (i in 1:length(K)){
-  SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,  0.2042188, 1, -0.2, 0.4, 1/3, 1000, 1000)
+  SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.2058203, 1, -0.1875977, 0.4, 1/3, 1000, 1000)
   IV[[i]] <- Newton_Rhapson_Call(S, SABR_prices[[i]], K[[i]], 0.02, 1/3)
 }
 
