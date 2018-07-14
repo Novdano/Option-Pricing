@@ -1,0 +1,79 @@
+---
+title: "SABR_IV_vs_Mkt_IV"
+output: html_document
+---
+
+```{r}
+#install.packages("pracma")
+library("NMOF")
+#library("pracma")
+```
+
+```{r}
+S_0 = 105.56
+maturity <- 3
+ir<- 2.22
+#MyData <- read.csv(file="c:/TheDataIWantToReadIn.csv", header=TRUE, sep=",")
+My_Data <- read.csv(file="MSFT_IVM.csv", header=TRUE, sep=",")
+Mkt_Strikes <- My_Data[[1]]
+Mkt_Prices <- My_Data[[2]]
+Mkt_IV <- My_Data[[3]]
+Mkt_Strikes
+Mkt_Prices
+Mkt_IV
+
+print(Mkt_Prices[1:5])
+
+num_data <- length(Mkt_Strikes)
+num_data
+
+t <- c(6/252, 34/252, 69/252, 97/252, 188/252, 342/252, 552/252)
+t[[1]]
+```
+
+
+Get Implied Volatility by Newton Rhapson
+```{r}
+Option_Price <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T)) 
+  d2 <- (log(S_0/K) + (r - sigma^2/2)*T)/(sigma * sqrt(T)) 
+  res <- S_0 * pnorm(d1) - K*pnorm(d2) * exp(-r * T)
+  return(res)
+}
+
+Vega <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T))
+  return (S_0 * sqrt(T) * pnorm(d1))
+}
+
+Newton_Rhapson_Call <- function(S_0,C_0,K,r,T){
+  curr_sigma <-100;
+  diff <- 10000
+  curr_price <- Option_Price(S_0, K, r, curr_sigma, T)
+  while (abs(curr_price - C_0)>0.0001) {
+    curr_sigma <- curr_sigma + ((C_0 - Option_Price(S_0, K, r, curr_sigma, T))/ Vega(S_0, K, r, curr_sigma, T))
+    curr_price <- Option_Price(S_0, K, r, curr_sigma, T)
+  }
+  return(curr_sigma)
+}
+
+```
+
+
+```{r}
+IV <- rep(0,5)
+for (i in 1:5){
+  
+  print(Mkt_Prices[ ((maturity-1)*5+1) : (maturity*5)])
+  prices <- Mkt_Prices[((maturity-1)*5+1) : (maturity*5)]
+  strikes <- Mkt_Strikes[((maturity-1)*5+1) : (maturity*5)]
+  print(t[[maturity]])
+  IV[[i]] <- Newton_Rhapson_Call(S_0, prices[[i]], strikes[[i]], ir, t[[maturity]])
+}
+
+IV
+
+plot(strikes, IV, "l")
+
+```
+

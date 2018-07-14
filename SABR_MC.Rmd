@@ -108,7 +108,7 @@ plot(alphas, Err, "l")
 
 ```{r}
 grid_search_SABR <- function(alpha, rho, deltaA, deltaR){
-  min <- MSFT_Opt_SABR(c(alpha, 1, 0.3, 0.4))
+  min <- MSFT_Opt_SABR(c(alpha, 1, rho, 0.4))
   minA <- alpha
   minR <- rho
   for(da in c(-deltaA, 0, deltaA)){
@@ -129,9 +129,9 @@ grid_search_SABR <- function(alpha, rho, deltaA, deltaR){
 }
 
 oldA <- 0.2
-oldR <- -0.2
+oldR <- 0.3
 newA <- 0.2
-newR <- -0.2
+newR <- 0.3
 deltaA <- 0.01
 deltaR <- 0.01
 new_vecs<-c(4,1)
@@ -254,7 +254,10 @@ Calculate IV of each option by SABR model
 SABR_prices <- rep(0,length(K))
 IV <- rep(0,length(K))
 for (i in 1:length(K)){
-  SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.2058203, 1, -0.1875977, 0.4, 1/3, 1000, 1000)
+  #SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.2058203, 1, -0.1875977, 0.4, 1/3, 1000, 1000)
+  #SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.3003125, 1, 0.2076563, 0.4, 1/3, 1000, 1000)
+  #SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.2677344, 1,0.401875, 0.4, 1/3, 1000, 1000)
+  SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.1928906, 1, 0.3058594, 0.4, 1/3, 2000, 2000)
   IV[[i]] <- Newton_Rhapson_Call(S, SABR_prices[[i]], K[[i]], 0.02, 1/3)
 }
 
