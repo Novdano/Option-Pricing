@@ -104,36 +104,50 @@ plot(alphas, Err, "l")
 
 
 ```{r}
-grid_search_SABR <- function(alpha, deltaA){
-  min <- MSFT_Opt_SABR(c(alpha, 1, 0.3, 0.4))
+grid_search_SABR <- function(alpha, rho, deltaA, deltaR){
+  min <- MSFT_Opt_SABR(c(alpha, 1, rho, 0.4))
   minA <- alpha
+  minR <- rho
   for(da in c(-deltaA, 0, deltaA)){
-      curr <- MSFT_Opt_SABR(c(alpha+da, 1, -0.2, 0.4))
+    for(dr in c(-deltaR, 0, deltaR)){
+      curr <- MSFT_Opt_SABR(c(alpha+da, 1, rho+dr, 0.4))
       if (curr<min){
         min <- curr
         minA <- alpha + da
+        minR <- rho + dr
       }
+    }
   }
   if (minA == alpha){
     deltaA <- deltaA/2
+    deltaR <- deltaR/2
   } 
-  return (c(minA, deltaA))
+  return (c(minA, minR, deltaA, deltaR))
 }
 
 oldA <- 0.2
+oldR <- 0.3
 newA <- 0.2
+newR <- 0.3
 deltaA <- 0.01
-new_vecs<-c(2,1)
-while (deltaA>0.0001){
+deltaR <- 0.01
+new_vecs<-c(4,1)
+while (deltaA>0.00001 && deltaR > 0.00001){
   oldA <- newA
-  new_vecs <- grid_search_SABR(oldA, deltaA)
+  oldR <- newR
+  new_vecs <- grid_search_SABR(oldA, oldR, deltaA, deltaR)
   newA <- new_vecs[[1]]
-  deltaA<- new_vecs[[2]]
+  newR <- new_vecs[[2]]
+  deltaA<- new_vecs[[3]]
+  deltaR<- new_vecs[[4]]
   print(newA)
+  print(newR)
   print(deltaA)
+  print(deltaR)
 }
 
 print(newA)
+print(newR)
 
 ```
 
@@ -246,10 +260,18 @@ IV_SABR <- function(f, K, t, alpha, beta, rho, nu){
 SABR_prices <- rep(0,length(K))
 IV_MC <- rep(0,length(K))
 IV_CF <- rep(0,length(K))
-for (i in 1:length(K)){0
+for (i in 1:length(K)){
   SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,  0.2042188, 1, -0.2, 0.4, 1/3, 10000, 10000)
   IV_MC[[i]] <- Newton_Rhapson_Call(S, SABR_prices[[i]], K[[i]], 0.02, 1/3)
   IV_CF[[i]] <- IV_SABR(S  * exp(0.02*(1/3)),K[[i]],1/3, 0.2042188, 1, -0.2, 0.4)
+}
+IV <- rep(0,length(K))
+for (i in 1:length(K)){
+  #SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.2058203, 1, -0.1875977, 0.4, 1/3, 1000, 1000)
+  #SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.3003125, 1, 0.2076563, 0.4, 1/3, 1000, 1000)
+  #SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.2677344, 1,0.401875, 0.4, 1/3, 1000, 1000)
+  SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.1928906, 1, 0.3058594, 0.4, 1/3, 2000, 2000)
+  IV[[i]] <- Newton_Rhapson_Call(S, SABR_prices[[i]], K[[i]], 0.02, 1/3)
 }
 
 print(IV_MC)
