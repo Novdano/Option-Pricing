@@ -23,6 +23,16 @@ BS_V0 <- function(S_0, K, r, sigma, T){
   return(res)
 }
 
+deltaBS <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T)) 
+  res <- pnorm(d1) 
+  return(res)
+}
+
+
+
+
+
 MC_BSV0 <- function(S_0, K, r, sigma, T, N, M){
   payoff <- rep(0,M)
   for (i in 1:M){

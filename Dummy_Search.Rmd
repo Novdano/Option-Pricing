@@ -77,7 +77,6 @@ new_vecs<-c(2,1)
 while (deltaK>0.00000001 && deltaT > 0.00000001){
   oldk<-newk
   oldt<-newt
-  old_vecs <- c(oldk, oldt, oldm, oldr)
   new_vecs <- grid_search_dumdum(oldk, oldt, deltaK, deltaT)
   newk<- new_vecs[[1]]
   newt <- new_vecs[[2]]
