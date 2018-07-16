@@ -281,4 +281,7 @@ plot(K ,IV_MC, "l", col = "green")
 plot(K ,IV_CF, "l", col = "green")
 
 ```
+```{r}
+
+```
 

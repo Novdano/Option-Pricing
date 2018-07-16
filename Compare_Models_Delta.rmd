@@ -79,8 +79,87 @@ for (i in 1:N){
   delta_BS_atm[[i]] <- deltaBS(stock_px[[i]], 100, r, 0.2, T)
   delta_BS_otm[[i]] <- deltaBS(stock_px[[i]], 105, r, 0.2, T)
 }
-
 ```
 
+Get Historcal Volatility
+```{r}
+hist_stock <- read.csv("MSFT_Data/MSFT_HIST_05to06.csv")
+hist_px <- hist_stock[,2]
+na.omit(hist_px)
+n <- length(hist_px)
 
+#takes in array of price and returns an array of day to day return
+hist_returns <- function(px){
+  N <- length(px)
+  ret <- rep(0,N-1)
+  for (i in 2:N){
+    ret[[i-1]] <- log(px[[i]]/px[[i-1]])
+  }
+  return (ret)
+}
+```
+
+Compare strategy PnL
+```{r}
+#Long one call, hedge with stock
+BS_IV <- sd(hist_returns(hist_px)) * sqrt(252)
+delta_bs <- deltaBS(stock_px[[1]], 100, 0.0175, BS_IV, 55/252)
+delta_mkt <- delta_BS_atm[[1]]
+#current value of portfolio
+port_bs <- atm_px[[1]] - delta_bs * stock_px[[1]]
+port_mkt <- atm_px[[1]] - delta_mkt * stock_px[[1]]
+#daily profit and loss
+daily_pnl_bs <- rep(0,length(stock_px))
+daily_pnl_mkt <- rep(0,length(stock_px))
+daily_pnl_bs[[1]] <- -port_bs
+daily_pnl_mkt[[1]] <- -port_mkt
+deltas_bs <- rep(0,length(stock_px))
+deltas_bs[[1]] <- delta_bs
+stock_held_BS <- rep(0,length(stock_px))
+stock_held_mkt <- rep(0, length(stock_px))
+stock_held_BS[[1]] <- -delta_bs
+stock_held_mkt[[1]] <- -delta_mkt
+days_left <- 55
+for (i in 2:length(stock_px)){
+  days_skipped <- as.numeric(as.Date(stock[i,1], "%m/%d/%Y") - as.Date(stock[i-1,1], "%m/%d/%Y"))
+  days_left <- days_left - days_skipped
+  if (as.Date(stock[i,1], "%m/%d/%Y") > (as.Date("06/14/2018","%m/%d/%Y"))){
+    r <- 0.02
+  } else {
+    r <- 0.0175
+  }
+  new_vol <- c(hist_px[i:length(hist_px)], head(stock_px,i-1))
+  new_deltaBS <- deltaBS(stock_px[[i]], 100, r, BS_IV, days_left/252)
+  new_deltaMkt <- delta_atm[[i]]
+  delta_bs <- new_deltaBS + stock_held_BS[[i-1]]
+  delta_mkt <- new_deltaMkt + stock_held_mkt[[i-1]]
+  port_bs <- port_bs - delta_bs * stock_px[[i]]
+  port_mkt <- port_mkt - delta_mkt * stock_px[[i]]
+  daily_pnl_bs[[i]] <- -port_bs
+  daily_pnl_mkt[[i]] <- -port_mkt
+  deltas_bs[[i]] <- new_deltaBS
+  stock_held_BS[[i]] <- -delta_bs + stock_held_BS[[i-1]]
+  stock_held_mkt[[i]] <- -delta_mkt + stock_held_mkt[[i-1]]
+}
+
+plot(1:length(stock_px),daily_pnl_mkt,col="red", "l", ylab="PnL", xlab="Time")
+lines(1:length(stock_px), daily_pnl_bs, col="green", "l")
+legend("topright",
+       c("Market","BlackScholes"),
+       fill=c("red","green"))
+
+plot(1:length(stock_px), delta_atm, col="red", "l",ylab="Delta", xlab="Time")
+lines(1:length(stock_px), deltas_bs, col="green", "l")
+legend("topright",
+       c("Market","BlackScholes"),
+       fill=c("red","green"))
+
+plot(1:length(stock_px), stock_held_mkt, col="red", "l",ylab="Stock Held", xlab="Time")
+lines(1:length(stock_px), stock_held_BS, col="green", "l")
+legend("topleft",
+       c("Market","BlackScholes"),
+       fill=c("red","green"))
+
+
+```
 

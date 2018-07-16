@@ -52,7 +52,7 @@ MC_BSV0 <- function(S_0, K, r, sigma, T, N, M){
   return (res)
 }
 
-MC_SV0 <- function(S_0, K, r, sigma_0, kappa, theta, miu, rho, lambda T, N, M){
+MC_SV0 <- function(S_0, K, r, sigma_0, kappa, theta, miu, rho, T, N, M){
   payoff <- rep(0,M)
   for (i in 1:M){
     s <- S_0
@@ -64,6 +64,7 @@ MC_SV0 <- function(S_0, K, r, sigma_0, kappa, theta, miu, rho, lambda T, N, M){
       s <- s + r*s*(T/N) + sqrt(v) * s * gts * sqrt(T/N)
       v <- v + kappa*(theta-v)*(T/N) + miu*sqrt(v)*sqrt(T/N)*(rho*(gts) + sqrt(1-rho^2)*gtv)
       #vols[[n]] = v
+      print(s)
     }
     #plot(c(1:N), vols,main = "vol evolution",ylab="Vols",xlab="Time",type="l")
     if (s>K){
