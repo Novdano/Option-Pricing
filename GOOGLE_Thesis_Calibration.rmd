@@ -5,6 +5,7 @@ output: html_document
 
 ```{r}
 library("NMOF")
+library("ggplot2")
 library("plotly")
 ```
 
@@ -55,12 +56,20 @@ GOOGL_Opt <- function(param_vectors){
 Callibration using grid search
 ```{r}
 grid_search <- function(kappa, theta, deltaK, deltaT){
-  min <- GOOGL_Opt(c(kappa, theta, 0.001, -0.2))
+  miu <- 0.467514601
+  rho <- -0.50903932
+  min <- GOOGL_Opt(c(kappa, theta, miu, rho))
   minK <- kappa
   minT <- theta
   for(dk in c(-deltaK, 0, deltaK)){
     for (dt in c(-deltaT, 0, deltaT)){
-      curr <- GOOGL_Opt(c(kappa + dk, theta + dt, 0.001, -0.2))
+      currK <- kappa + dk
+      currT <- theta + dt
+      if (currT<0 || currT > 1 || currK <0 || ((currK +miu^2) /(2*currT))<0){
+        next
+      }
+      curr <- GOOGL_Opt(c(kappa + dk, theta + dt, miu, rho))
+      #print(c((currK +miu^2) /(2*currT), currT, curr))
       if (curr<min){
         min <- curr
         minK <- kappa + dk
@@ -68,12 +77,15 @@ grid_search <- function(kappa, theta, deltaK, deltaT){
       }
     }
   }
-  if (minK<0){
-    minK = kappa
-  }
-  if (minT <0){
+  if (minT <0 || minT>1){
     minT = theta
   }
+  if (minK<0 || ((minK +miu^2) /(2*minT))<0){
+    minK = kappa
+  }
+  
+  #print(c((minK +miu^2) /(2*minT), minT))
+  
   if (minK == kappa && minT == theta){
     deltaK <- deltaK/2
     deltaT <- deltaT/2
@@ -82,10 +94,17 @@ grid_search <- function(kappa, theta, deltaK, deltaT){
   
 }
 
-oldk <- 2.040210844 * 2 * 0.053565543 - 0.467514601^2 
-oldt <- 0.053565543
-newk <- 2.040210844 * 2 * 0.053565543 - 0.467514601^2 
-newt<- 0.053565543
+```
+
+```{r}
+# oldk <- 2.040210844 * 2 * 0.053565543 - 0.467514601^2 
+# oldt <- 0.053565543
+# newk <- 2.040210844 * 2 * 0.053565543 - 0.467514601^2 
+# newt<- 0.053565543
+oldk <- 3 * 2 * 1 - 0.467514601^2 
+oldt <- 1
+newk <- 3 * 2 * 1 - 0.467514601^2 
+newt<- 1
 deltaK <- 0.0000000001
 deltaT <- 0.01
 new_vecs<-c(2,1)
@@ -109,7 +128,7 @@ print(newt)
 
 ```{r}
 options(digits = 10)
-GOOGL_Opt(c(1.827034 * 2 * 0.05981554 - 0.467514601^2, 0.05981554,0.467514601,-0.50903932))
+GOOGL_Opt(c(1.841903 * 2 * 1.62875 - 0.467514601^2, 1.62875,0.467514601,-0.50903932))
 GOOGL_Opt(c(2.040210844 * 2 * 0.05981554 - 0.467514601^2, 0.053565543,0.467514601,-0.50903932))
 ```
 Plot Error Function
@@ -141,4 +160,195 @@ for (i in 1:length(kappas)){
 ```{r}
 plot_ly() %>% add_surface(x=thetas, y=kappas, z=errors)
 ``` 
+
+0.1kappa:0.05theta, 3kappa:0.05theta, 3kappa:1theta, 0.1kappa:1theta
+
+
+Descent four points
+```{r}
+distance <- function(p1, p2){
+  x1 <- p1[[1]]
+  y1 <- p1[[2]]
+  x2 <- p2[[1]]
+  y2 <- p2[[2]]
+  return (sqrt((x1-x2)^2 + (y1-y2)^2))
+}
+
+
+grid_search_limit <- function(a, theta, deltaA, deltaT, D, initK, initT){
+  miu <- 0.467514601
+  rho <- -0.50903932
+  min <- GOOGL_Opt(c(a, theta, miu, rho))
+  minA <- a
+  minT <- theta
+  for(dA in c(-deltaA, 0, deltaA)){
+    for (dt in c(-deltaT, 0, deltaT)){
+      currA <- a + dA
+      currT <- theta + dt
+      if (currT<0 || currT > 1 || currA <0 || ((currA +miu^2) /(2*currT))<0){
+        next
+      }
+      curr <- GOOGL_Opt(c(a + dA, theta + dt, miu, rho))
+      if (curr<min){
+        min <- curr
+        minA <- a + dA
+        minT <- theta + dt
+      }
+    }
+  }
+  if (minT <0 || minT>1){
+    minT = theta
+  }
+  if (minA<0 || ( (minA +miu^2) /(2*minT))<0){
+    minA = a
+  }
+  
+  # print("Start")
+  # print((a + miu^2)/(2*theta))
+  # print(theta)
+  # # print("Min Value")
+  # # print((minA + miu^2)/(2*minT))
+  # # print(minT)
+  # print("Initial Value")
+  # print(initK)
+  # print(initT)
+  dist = distance(c((minA + miu^2)/(2*minT), minT), c(initK, initT)) 
+  #print(dist)
+  if (dist > 10){
+    minA <- a
+    minT <- theta
+  }
+  if (minA == a && minT == theta){
+    deltaA <- deltaA/2
+    deltaT <- deltaT/2
+  } 
+  return (c(minA, minT,deltaA, deltaT))
+  
+}
+
+grid_descent <- function(startK, startT){
+#grid_descent <- function(startK, startT, D, initK, initT){
+  miu <- 0.467514601
+  rho <- -0.50903932
+  oldA <- startK *2 *startT - miu^2
+  oldT <- startT
+  newA <- startK *2 *startT - miu^2
+  newT<- startT
+  deltaA <- 1e-10
+  deltaT <- 0.01
+  new_vecs<-c(2,1)
+  while (deltaA> 1e-15 && deltaT > 0.00001){
+    oldA<-newA
+    oldT<-newT
+    #new_vecs <- grid_search_limit(oldA, oldT, deltaA, deltaT, D, initK, initT)
+    new_vecs <- grid_search(oldA, oldT, deltaA, deltaT)
+    newA<- new_vecs[[1]]
+    newT <- new_vecs[[2]]
+    deltaA <- new_vecs[[3]]
+    deltaT <- new_vecs[[4]]
+  }
+  return(c((newA + miu^2)/(2*newT) , newT))
+}
+```
+
+```{r}
+p1 <- grid_descent(1, 0.2)
+p2 <-grid_descent(3, 0.05)
+p3 <- grid_descent(3, 1)
+p4 <- grid_descent(1, 1)
+
+k1 <- p1[[1]]
+t1 = p1[[2]]
+k2 = p2 [[1]]
+t2 = p2[[2]]
+k3 <- p3[[1]]
+t3 = p3[[2]]
+k4 = p4[[1]]
+t4 = p4[[2]]
+
+
+# newK <- 3
+# newT <- 0.05
+# oldK <- 0
+# oldT <- 0
+# D <- 1e100
+# for (i in 1:4){
+#   #print(D)
+#   new_params <- grid_descent(newK, newT, D, oldK, oldT)
+#   oldK <- newK
+#   oldT <- newT
+#   newK <- new_params[[1]]
+#   newT <- new_params[[2]]
+#   D<- distance (c(newK, newT), c(oldK, oldT))
+#   print(c(newK, newT))
+# }
+# newK
+# newT
+
+```
+4 points MSE
+```{r}
+p1
+p2
+p3
+p4
+options(digits = 10)
+GOOGL_Opt(c(2.040210844 * 2 * 0.05981554 - 0.467514601^2, 0.053565543, 0.467514601, -0.50903932))
+GOOGL_Opt(c(k1 * 2 * t1 - 0.467514601^2, t1, 0.467514601,-0.50903932))
+GOOGL_Opt(c(k2 * 2 * t2 - 0.467514601^2, t2, 0.467514601,-0.50903932))
+GOOGL_Opt(c(k3 * 2 * t3 - 0.467514601^2, t3, 0.467514601,-0.50903932))
+GOOGL_Opt(c(k4 * 2 * t4 - 0.467514601^2, t4, 0.467514601,-0.50903932))
+```
+
+
+Error Term Structure
+```{r}
+ownK <- 33.0905178693
+ownT <- 0.0486328125
+
+#May
+N_May <- dim(may)[[1]]
+error_mat_orig <- matrix(0, nrow=3, ncol=N_May)
+error_mat_own <- matrix(0, nrow=3, ncol=N_May)
+for (i in 1:N_May){
+  r <- may[i,1]
+  tau <- may[i,2]
+  S <- may[i,3]
+  K <- may [i,4]
+  Mkt_Price <- may[i,5]
+  error_mat_orig[1,i] <- Mkt_Price - callHestoncf(S, K, tau/252, r, 0 ,sqrt(0.069545829), 0.05981554, -0.50903932, 2.040210844, 0.467514601)
+  error_mat_own[1,i] <- Mkt_Price - callHestoncf(S, K, tau/252, r, 0 ,sqrt(0.069545829), ownT, -0.50903932, ownK, 0.467514601)
+}
+
+#September
+N_Sep <- dim(sep)[[1]]
+for (i in 1:N_Sep){
+  Strike <- sep[i,1]
+  tau <- sep[i,2]
+  S <- sep[i,3]
+  K <- sep [i,4]
+  Mkt_Price <- sep[i,5]
+  error_mat_orig[2,i] <- Mkt_Price - callHestoncf(S, K, tau/252, r, 0 ,sqrt(0.069545829), 0.05981554, -0.50903932, 2.040210844, 0.467514601)
+  error_mat_own[2,i] <- Mkt_Price - callHestoncf(S, K, tau/252, r, 0 ,sqrt(0.069545829), ownT, -0.50903932, ownK, 0.467514601)
+}
+
+#Jan
+N_Jan <- dim(jan)[[1]]
+for (i in 1:N_Jan){
+  Strike <- jan[i,1]
+  tau <- jan[i,2]
+  S <- jan[i,3]
+  K <- jan [i,4]
+  Mkt_Price <- jan[i,5]
+  error_mat_orig[3,i] <- Mkt_Price - callHestoncf(S, K, tau/252, r, 0 ,sqrt(0.069545829), 0.05981554, -0.50903932, 2.040210844, 0.467514601)
+  error_mat_own[3,i] <- Mkt_Price - callHestoncf(S, K, tau/252, r, 0 ,sqrt(0.069545829), ownT, -0.50903932, ownK, 0.467514601)
+}
+```
+
+```{r}
+plot_ly() %>% add_surface(z=error_mat_orig) %>% add_surface(z=error_mat_own, colorscale = list(c(0,"rgb(107,184,214)"),c(1,"rgb(0,90,124)")))
+
+```
+
+
 
