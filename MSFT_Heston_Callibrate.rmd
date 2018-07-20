@@ -36,7 +36,7 @@ MSFT_Opt <- function(params){
     sigma0 <- calls[i,6]
     tau <- as.numeric(date-curr_date)/252
     #print(c(S, K, tau, r, sigma0, theta, rho, kappa, nu))
-    px_est[[i]] <- callHestoncf(S, K, tau, r, 0 ,sigma0/100, theta, rho, kappa, nu)
+    px_est[[i]] <- callHestoncf(S, K, tau, r, 0 ,(sigma0/100)^2, theta, rho, kappa, nu)
   }
   return (MSE(px_est,calls[[5]]))
 }
@@ -53,8 +53,8 @@ grid_search_hest <- function(a, theta, nu, rho, deltaA, deltaT, deltaNu, deltaRh
     for(dT in c(-deltaT, 0, deltaT)){
       currA <- a + dA
       currT <- theta + dT
-      print(currA)
-      print(currT)
+      # print(currA)
+      # print(currT)
       if (currT<0 || currT > 1 || currA <0 || ((currA +nu^2) /(2*currT))<0){
         next
       }
@@ -81,7 +81,7 @@ grid_search_hest <- function(a, theta, nu, rho, deltaA, deltaT, deltaNu, deltaRh
     deltaT = deltaT/2
   }
   
-  a < minA
+  a <- minA
   theta <- minT
 
   #Callibrate Nu and Rho
@@ -140,7 +140,7 @@ grid_descend_MSFT <- function(init_params){
   new_n <- init_params[[3]]
   new_r <- init_params[[4]]
   delta_a <- 1e-10
-  delta_t <- 0.01
+  delta_t <- 0.001
   delta_n <- 1e-10
   delta_r <- 0.01
   while (delta_a > 1e-15 && delta_t>1e-5 && delta_n>1e-14 && delta_r>1e-5){
@@ -165,13 +165,34 @@ grid_descend_MSFT <- function(init_params){
 
 Trial Run
 ```{r}
-kappa <- 2
+kappa1 <- 2
+kappa2 <- 4
+kappa3 <- 0.9
 theta <- 0.8
 nu <- 1e-3
 rho <- 0.1
-a <- kappa * 2 * theta - nu^2
-grid_descend_MSFT(c(a, theta, nu, rho))
-
+a1 <- kappa1 * 2 * theta - nu^2
+a2 <- kappa2 * 2 * theta - nu^2
+a3 <- kappa3 * 2 * theta - nu^2
+grid_descend_MSFT(c(a1, theta, nu, rho))
+grid_descend_MSFT(c(a2, 0.5, 0.2172645, -0.2))
+grid_descend_MSFT(c(a3, 0.5, 0.112746, 0.5))
 ```
 
+Plot error function
+```{r}
+nus <- seq(0.01, 0.4, 0.001)
+rhos <- seq(-1, 1, 0.01)
+errors <- matrix(0, nrow=length(nus), ncol=length(rhos))
+
+for (i in 1:length(nus)){
+  for (j in 1:length(rhos)){
+    errors[i,j] = MSFT_Opt(c(1.975307 * 2 *0.810000 - nus[[i]]^2 ,0.810000,nus[[i]],rhos[[i]]))
+  }
+}
+
+
+
+
+```
 
