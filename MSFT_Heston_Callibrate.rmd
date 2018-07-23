@@ -5,6 +5,7 @@ output: html_document
 
 ```{r}
 library("NMOF")
+library("plotly")
 ```
 
 Parse Data
@@ -181,18 +182,18 @@ grid_descend_MSFT(c(a3, 0.5, 0.112746, 0.5))
 
 Plot error function
 ```{r}
-nus <- seq(0.01, 0.4, 0.001)
+nus <- seq(0.01, 0.05, 0.001)
 rhos <- seq(-1, 1, 0.01)
 errors <- matrix(0, nrow=length(nus), ncol=length(rhos))
 
 for (i in 1:length(nus)){
   for (j in 1:length(rhos)){
-    errors[i,j] = MSFT_Opt(c(1.975307 * 2 *0.810000 - nus[[i]]^2 ,0.810000,nus[[i]],rhos[[i]]))
+    errors[i,j] = MSFT_Opt(c(6.2282305 * 2 *0.5100000 - nus[[i]]^2 ,0.5100000,nus[[i]],rhos[[j]]))
   }
 }
+```
 
-
-
-
+```{r}
+plot_ly() %>% add_surface(x=rhos, y=nus, z=errors)
 ```
 

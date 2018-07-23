@@ -100,6 +100,15 @@ minI <- which.min(Err)
 alphas[minI]
 plot(alphas, Err, "l")
 
+rhos <- seq(-1,1,0.01)
+Err <- rep(0,length(rhos))
+for(i in 1:length(rhos)){
+  Err[[i]] <-  MSFT_Opt_SABR(c(0.2133789, 1, rhos[[i]], 0.4))
+}
+minI <- which.min(Err)
+alphas[minI]
+plot(rhos, Err, "l")
+
 ```
 
 
@@ -261,18 +270,19 @@ SABR_prices <- rep(0,length(K))
 IV_MC <- rep(0,length(K))
 IV_CF <- rep(0,length(K))
 for (i in 1:length(K)){
-  SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,  0.2042188, 1, -0.2, 0.4, 1/3, 10000, 10000)
+  SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,  0.2133789, 1, 0.3064453, 0.4, 1/3, 10000, 10000)
   IV_MC[[i]] <- Newton_Rhapson_Call(S, SABR_prices[[i]], K[[i]], 0.02, 1/3)
-  IV_CF[[i]] <- IV_SABR(S  * exp(0.02*(1/3)),K[[i]],1/3, 0.2042188, 1, -0.2, 0.4)
+  IV_CF[[i]] <- IV_SABR(S  * exp(0.02*(1/3)),K[[i]],1/3, 0.2133789, 1, 0.3064453, 0.4)
 }
 IV <- rep(0,length(K))
-for (i in 1:length(K)){
-  #SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.2058203, 1, -0.1875977, 0.4, 1/3, 1000, 1000)
-  #SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.3003125, 1, 0.2076563, 0.4, 1/3, 1000, 1000)
-  #SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.2677344, 1,0.401875, 0.4, 1/3, 1000, 1000)
-  SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.1928906, 1, 0.3058594, 0.4, 1/3, 2000, 2000)
-  IV[[i]] <- Newton_Rhapson_Call(S, SABR_prices[[i]], K[[i]], 0.02, 1/3)
-}
+# for (i in 1:length(K)){
+#   #SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.2058203, 1, -0.1875977, 0.4, 1/3, 1000, 1000)
+#   #SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.3003125, 1, 0.2076563, 0.4, 1/3, 1000, 1000)
+#   #SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.2677344, 1,0.401875, 0.4, 1/3, 1000, 1000)
+#   #SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.1928906, 1, 0.3058594, 0.4, 1/3, 2000, 2000)
+#   SABR_prices[[i]] <- SABR_MC_Call(S,K[[i]],0.02,0.2133789, 1, 0.3064453, 0.4, 1/3, 100, 100)
+#   IV[[i]] <- Newton_Rhapson_Call(S, SABR_prices[[i]], K[[i]], 0.02, 1/3)
+# }
 
 print(IV_MC)
 print(IV_CF)

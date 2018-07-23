@@ -1,0 +1,128 @@
+---
+title: "Simulated Annealing"
+author: "Novdano"
+date: "July 20, 2018"
+output: pdf_document
+---
+
+```{r}
+library("NMOF")
+library("plotly")
+```
+Load data
+```{r}
+may = read.delim("GOOG04062013.dat",header=FALSE,sep=",")
+sep = read.delim("GOOG09202013.dat",header=FALSE,sep=",")
+jan = read.delim("GOOG01172014.dat",header=FALSE,sep=",")
+
+
+
+option_data = rbind(rbind(may, sep), jan)
+mkt_px = option_data[,5]
+num_data = length(mkt_px)
+
+```
+
+
+MSE Code
+```{r}
+
+MSE <- function(vec1, vec2){
+  ms <- (vec1-vec2)^2
+  return ((sum(ms))^0.5)/length(vec1)
+}
+
+
+GOOGL_Opt <- function(param_vectors){
+  a <- param_vectors[[1]]
+  theta <- param_vectors[[2]]
+  miu <- param_vectors[[3]]
+  rho<- param_vectors[[4]]
+  kappa <- (a + miu^2)/(2*theta)
+  sv_est = rep(0, num_data)
+  for (i in 1:num_data){
+    r = option_data[i,1]
+    tau = option_data[i,2]
+    S = option_data[i,3]
+    K = option_data[i,4]
+    sv_est[[i]] = callHestoncf(S, K, tau/252, r, 0 ,sqrt(0.069545829), theta, rho, kappa, miu)
+  }
+  return (MSE(sv_est, mkt_px))
+}
+```
+
+```{r}
+neighbor <- function(param_vectors){
+  a <- param_vectors[[1]]
+  theta <- param_vectors[[2]]
+  nu <- param_vectors[[3]]
+  rho<- param_vectors[[4]]
+  sdA <- 1
+  sdT <- 0.02
+  sdN <- 0.02
+  sdR <- 0.01
+  newA <- rnorm(1, a, sdA)
+  newT <- rnorm(1, theta, sdT)
+  newN <- rnorm (1, nu, sdN)
+  newR <- rnorm(1, rho, sdR)
+  while (newA<0 || newT <0 ||newT>1 || (newA + nu^2)/2*newT <0||nu>1 ||nu<0||rho<-1||rho>1){
+    sdA <- sdA/2
+    sdT <- sdT/2
+    sdN <- sdN/2
+    sdR <- sdR/2
+    newA <- rnorm(1, a, sdA)
+    newT <- rnorm(1, theta, sdT)
+    newN <- rnorm (1, nu, sdN)
+    newR <- rnorm(1, rho, sdR)
+  }
+  return (c(newA, newT, newN, newR))
+}
+
+acceptance_probability <- function(old_cost, new_cost, T){
+  return (exp((old_cost-new_cost)/T))
+}
+
+
+simulated_annealing <- function(param_vectors){
+  a <- param_vectors[[1]]
+  theta <- param_vectors[[2]]
+  nu <- param_vectors[[3]]
+  rho<- param_vectors[[4]]
+  sol <- param_vectors
+  old_cost <- GOOGL_Opt(c(a, theta, nu, rho))
+  T <- 1.0
+  T_min <- 1e-4
+  alpha <- 0.9
+  while (T > T_min){
+    print(T)
+    for (i in 1: 100){
+      new_sol <- neighbor(sol)
+      #print(new_sol)
+      new_cost <- GOOGL_Opt(new_sol)
+      ap = acceptance_probability(old_cost, new_cost, T)
+      if (ap > runif(1, 0, 1)){
+        sol <- new_sol
+        old_cost <- new_cost 
+      }
+    }
+    T <- T * alpha
+  }
+  return (c(sol, old_cost))
+}
+```
+
+
+```{r}
+simulated_annealing(c(2 * 2 * 0.1 - 0.467514601^2,0.1,0.467514601,-0.50903932))
+```
+```{r}
+a = 7.19093981
+theta = 0.04350129
+miu = 0.46751460
+rho = -0.50903932
+kappa = (a + miu^2)/ (2*theta)
+kappa
+```
+
+
+

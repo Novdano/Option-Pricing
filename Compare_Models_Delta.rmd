@@ -19,6 +19,11 @@ BS_V0 <- function(S_0, K, r, sigma, T){
   return(res)
 }
 
+vegaBS <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T))
+  return (S_0 * sqrt(T) * pnorm(d1))
+}
+
 deltaBS <- function(S_0, K, r, sigma, T){
   d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T)) 
   res <- pnorm(d1) 
@@ -37,12 +42,27 @@ hestonDeltaApprox <- function(S, K, tau, r, vol, theta, rho, kappa, miu, delta){
 SABR
 ```{r}
 IV_SABR <- function(f, K, t, alpha, beta, rho, nu){
-  first = alpha/((f*K)^((1-beta)/2) *(1 + ((1-beta)^4)/24 *log(f/K)^2 + ((1-beta^4)/1920)*log(f/K)^4))
-  z = nu/alpha * ((f*K)^(1-beta)/2) * log(f/K)
+  first = alpha/((f*K)^((1-beta)/2) *(1 + (((1-beta)^2)/24) *(log(f/K))^2 + ((1-beta^4)/1920)*log(f/K)^4))
+  z = (nu/alpha) * ((f*K)^((1-beta)/2)) * log(f/K)
   chi_z = log((sqrt(1-2*rho*z+z^2) + z - rho)/(1-rho))
-  last = 1 + (((1-beta)^2/24) * alpha^2/(f*K)^(1-beta) + 1/4 * ((rho*beta*nu*alpa)/((f*K)^((1-beta)/2))) + ((2-3*rho^2)/24)*nu^2)
-  return (first * (x/chi_z) * last * t)
+  last = 1 + (((1-beta)^2/24) * alpha^2/((f*K)^(1-beta)) + (1/4) * ((rho*beta*nu*alpha)/((f*K)^((1-beta)/2))) + ((2-3*rho^2)/24)*nu^2)*t
+  return (first * (z/chi_z) * last)
 }
+
+SABR_V0 <- function(S, K, r, T, alpha, beta, rho, nu){
+  return (BS_V0(S, K, r, IV_SABR(S*exp(r*T), K, T, alpha, beta, rho, nu), T))
+}
+
+deltaSABR <- function(S, K, r, T, alpha, beta, rho, nu){
+  delta <- 1e-3
+  return (deltaBS(S*exp(r*T), K, r,  IV_SABR(S*exp(r*T), K, T, alpha, beta, rho, nu), T) + vegaBS(S*exp(r*T), K, r,  IV_SABR(S*exp(r*T), K, T, alpha, beta, rho, nu), T) * ((IV_SABR(S*exp(r*T)+delta, K, T, alpha, beta, rho, nu) - IV_SABR(S*exp(r*T)-delta, K, T, alpha, beta, rho, nu)) / (2*delta)) * rho * nu/(S*exp(r*T)*beta))
+}
+
+
+alpha <- 0.1645685
+beta <- 1
+rho <- 0.8180933
+nu <- 0.6794907
 
 ```
 
@@ -81,7 +101,7 @@ for (i in 1:N){
 }
 ```
 
-Get Historcal Volatility
+Get Historical Volatility
 ```{r}
 hist_stock <- read.csv("MSFT_Data/MSFT_HIST_05to06.csv")
 hist_px <- hist_stock[,2]
@@ -104,21 +124,29 @@ Compare strategy PnL
 #Long one call, hedge with stock
 BS_IV <- sd(hist_returns(hist_px)) * sqrt(252)
 delta_bs <- deltaBS(stock_px[[1]], 100, 0.0175, BS_IV, 55/252)
+delta_SABR <- deltaSABR(stock_px[[1]], 100, 0.0175, 55/252, alpha, beta, rho, nu)
 delta_mkt <- delta_BS_atm[[1]]
 #current value of portfolio
 port_bs <- atm_px[[1]] - delta_bs * stock_px[[1]]
+port_SABR <- atm_px[[1]] - delta_SABR * stock_px[[1]]
 port_mkt <- atm_px[[1]] - delta_mkt * stock_px[[1]]
 #daily profit and loss
 daily_pnl_bs <- rep(0,length(stock_px))
 daily_pnl_mkt <- rep(0,length(stock_px))
+daily_pnl_SABR <- rep(0, length(stock_px))
 daily_pnl_bs[[1]] <- -port_bs
 daily_pnl_mkt[[1]] <- -port_mkt
+daily_pnl_SABR[[1]] <- -port_SABR
 deltas_bs <- rep(0,length(stock_px))
 deltas_bs[[1]] <- delta_bs
+deltas_SABR <- rep(0,length(stock_px))
+deltas_SABR[[1]] <- delta_SABR
 stock_held_BS <- rep(0,length(stock_px))
+stock_held_SABR <- rep(0, length(stock_px))
 stock_held_mkt <- rep(0, length(stock_px))
 stock_held_BS[[1]] <- -delta_bs
 stock_held_mkt[[1]] <- -delta_mkt
+stock_held_SABR[[1]] <- -delta_SABR
 days_left <- 55
 for (i in 2:length(stock_px)){
   days_skipped <- as.numeric(as.Date(stock[i,1], "%m/%d/%Y") - as.Date(stock[i-1,1], "%m/%d/%Y"))
@@ -130,35 +158,48 @@ for (i in 2:length(stock_px)){
   }
   new_vol <- c(hist_px[i:length(hist_px)], head(stock_px,i-1))
   new_deltaBS <- deltaBS(stock_px[[i]], 100, r, BS_IV, days_left/252)
+  new_deltaSABR <- deltaSABR(stock_px[[i]], 100, r, days_left/252, alpha, beta, rho, nu)
   new_deltaMkt <- delta_atm[[i]]
   delta_bs <- new_deltaBS + stock_held_BS[[i-1]]
+  delta_SABR <- new_deltaSABR + stock_held_SABR[[i-1]]
   delta_mkt <- new_deltaMkt + stock_held_mkt[[i-1]]
   port_bs <- port_bs - delta_bs * stock_px[[i]]
+  port_SABR <- port_SABR - delta_SABR * stock_px[[i]]
   port_mkt <- port_mkt - delta_mkt * stock_px[[i]]
   daily_pnl_bs[[i]] <- -port_bs
+  daily_pnl_SABR[[i]] <- -port_SABR
   daily_pnl_mkt[[i]] <- -port_mkt
   deltas_bs[[i]] <- new_deltaBS
+  deltas_SABR[[i]] <- new_deltaSABR
   stock_held_BS[[i]] <- -delta_bs + stock_held_BS[[i-1]]
+  stock_held_SABR[[i]] <- -delta_SABR + stock_held_SABR[[i-1]]
   stock_held_mkt[[i]] <- -delta_mkt + stock_held_mkt[[i-1]]
 }
 
-plot(1:length(stock_px),daily_pnl_mkt,col="red", "l", ylab="PnL", xlab="Time")
+print(deltas_SABR)
+print(deltas_bs)
+print(delta_atm)
+
+plot(1:length(stock_px),daily_pnl_mkt,col="red", "l", ylab="PnL", xlab="Time", ylim=c(30,70))
 lines(1:length(stock_px), daily_pnl_bs, col="green", "l")
+lines(1:length(stock_px), daily_pnl_SABR, col="blue", "l")
 legend("topright",
-       c("Market","BlackScholes"),
-       fill=c("red","green"))
+       c("Market","BlackScholes", "SABR"),
+       fill=c("red","green", "blue"))
 
 plot(1:length(stock_px), delta_atm, col="red", "l",ylab="Delta", xlab="Time")
 lines(1:length(stock_px), deltas_bs, col="green", "l")
+lines(1:length(stock_px), deltas_SABR, col="blue", "l")
 legend("topright",
-       c("Market","BlackScholes"),
-       fill=c("red","green"))
+       c("Market","BlackScholes", "SABR"),
+       fill=c("red","green", "blue"))
 
 plot(1:length(stock_px), stock_held_mkt, col="red", "l",ylab="Stock Held", xlab="Time")
 lines(1:length(stock_px), stock_held_BS, col="green", "l")
+lines(1:length(stock_px), stock_held_SABR, col="blue", "l")
 legend("topleft",
-       c("Market","BlackScholes"),
-       fill=c("red","green"))
+       c("Market","BlackScholes", "SABR"),
+       fill=c("red","green", "blue"))
 
 
 ```

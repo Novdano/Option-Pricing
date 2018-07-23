@@ -7,6 +7,7 @@ output: html_document
 library("NMOF")
 library("ggplot2")
 library("plotly")
+library(pracma)
 ```
 
 Load data
@@ -133,7 +134,7 @@ GOOGL_Opt(c(2.040210844 * 2 * 0.05981554 - 0.467514601^2, 0.053565543,0.46751460
 ```
 Plot Error Function
 ```{r}
-kappas <- c(seq(0.1,3,0.1))
+kappas <- c(seq(0.1, 100, 0.1))
 thetas <- c(seq(0.05,1,0.05))
 errors <- matrix(0, nrow=length(kappas), ncol=length(thetas))
 for (i in 1:length(kappas)){
@@ -300,11 +301,10 @@ GOOGL_Opt(c(k3 * 2 * t3 - 0.467514601^2, t3, 0.467514601,-0.50903932))
 GOOGL_Opt(c(k4 * 2 * t4 - 0.467514601^2, t4, 0.467514601,-0.50903932))
 ```
 
-
-plot for volatility surface
+Error Term Structure
 ```{r}
-ownK <- 33.0905178693
-ownT <- 0.0486328125
+ownK <- 11.11754488
+ownT <- 0.26984375
 
 #May
 N_May <- dim(may)[[1]]
@@ -365,17 +365,25 @@ Vega <- function(S_0, K, r, sigma, T){
   return (S_0 * sqrt(T) * pnorm(d1))
 }
 
+
 Newton_Rhapson_Call <- function(S_0,C_0,K,r,T){
   curr_sigma <-100;
   diff <- 10000
   curr_price <- Option_Price(S_0, K, r, curr_sigma, T)
   diff <- abs(curr_price-C_0)
-  print(class(diff))
-  while (diff > 0.0001) {
-    curr_sigma <- curr_sigma + ((C_0 - Option_Price(S_0, K, r, curr_sigma, T))/ Vega(S_0, K, r, curr_sigma, T))
+  while (diff > 1e-2) {
+    vega = Vega(S_0, K, r, curr_sigma, T)
+    diff = (C_0 - Option_Price(S_0, K, r, curr_sigma, T))
+    curr_sigma <- curr_sigma - ((Option_Price(S_0, K, r, curr_sigma, T) - C_0))/ Vega(S_0, K, r, curr_sigma, T)
     curr_price <- Option_Price(S_0, K, r, curr_sigma, T)
     diff <- abs(curr_price-C_0)
+    if (is.na(diff)){
+      print(curr_price)
+      print(curr_sigma)
+      print(c(diff,vega))
+    }
   }
+  #print(curr_sigma)
   return(curr_sigma)
 }
 
@@ -384,7 +392,7 @@ Newton_Rhapson_Call <- function(S_0,C_0,K,r,T){
 
 
 
-Error Term Structure
+plotvol surfacce
 ```{r}
 ownK <- 33.0905178693
 ownT <- 0.0486328125
@@ -400,11 +408,10 @@ for (i in 1:N_May){
   K <- may [i,4]
   price_orig <- callHestoncf(S, K, tau/252, r, 0 ,sqrt(0.069545829), 0.05981554, -0.50903932, 2.040210844, 0.467514601)
   price_own <- callHestoncf(S, K, tau/252, r, 0 ,sqrt(0.069545829), ownT, -0.50903932, ownK, 0.467514601)
-  print(c(price_orig, price_own))
-  vol_mat_orig[1,i] <- Newton_Rhapson_Call(S, price_orig, K, r, tau)
-  print("first pass")
-  vol_mat_own[1,i] <- Newton_Rhapson_Call(S, price_own, K, r, tau)
-  print("second pass")
+  vol_mat_orig[1,i] <- Newton_Rhapson_Call(S, price_orig, K, r, tau) 
+  vol_mat_own[1,i] <- Newton_Rhapson_Call(S, price_own, K, r, tau) 
+  #vol_mat_orig[1,i] <- newtonRaphson(function(sigma) {Option_Price(S, K, r, sigma, tau)-price_orig}, 80, function(sigma){Vega(S, K, r, sigma, tau)})
+  #vol_mat_own[1,i] <- newtonRaphson(function(sigma) {Option_Price(S, K, r, sigma, tau)-price_own}, 80, function(sigma){Vega(S, K, r, sigma, tau)})
 }
 
 #September
@@ -416,12 +423,13 @@ for (i in 1:N_Sep){
   K <- sep [i,4]
   price_orig <- callHestoncf(S, K, tau/252, r, 0 ,sqrt(0.069545829), 0.05981554, -0.50903932, 2.040210844, 0.467514601)
   price_own <- callHestoncf(S, K, tau/252, r, 0 ,sqrt(0.069545829), ownT, -0.50903932, ownK, 0.467514601)
-  vol_mat_orig[2,i] <- Newton_Rhapson_Call(S, price_orig, K, r, tau)
+  vol_mat_orig[2,i] <- Newton_Rhapson_Call(S, price_orig, K, r, tau) 
   vol_mat_own[2,i] <- Newton_Rhapson_Call(S, price_own, K, r, tau)
 }
 
 #Jan
 N_Jan <- dim(jan)[[1]]
+
 for (i in 1:N_Jan){
   Strike <- jan[i,1]
   tau <- jan[i,2]
@@ -429,14 +437,14 @@ for (i in 1:N_Jan){
   K <- jan [i,4]
   price_orig <- callHestoncf(S, K, tau/252, r, 0 ,sqrt(0.069545829), 0.05981554, -0.50903932, 2.040210844, 0.467514601)
   price_own <- callHestoncf(S, K, tau/252, r, 0 ,sqrt(0.069545829), ownT, -0.50903932, ownK, 0.467514601)
-  vol_mat_orig[3,i] <- Newton_Rhapson_Call(S, price_orig, K, r, tau)
+  vol_mat_orig[3,i] <- Newton_Rhapson_Call(S, price_orig, K, r, tau) 
   vol_mat_own[3,i] <- Newton_Rhapson_Call(S, price_own, K, r, tau)
 }
 ```
 
 ```{r}
-plot_ly() %>% add_surface(z=vol_mat_orig) %>% add_surface(z=vol_mat_own, colorscale = list(c(0,"rgb(107,184,214)"),c(1,"rgb(0,90,124)")))
-
+#plot_ly() %>% add_surface(z=vol_mat_orig) %>% add_surface(z=vol_mat_own, colorscale = list(c(0,"rgb(107,184,214)"),c(1,"rgb(0,90,124)")))
+plot_ly() %>% add_surface(z=vol_mat_orig) %>% add_surface(z=vol_mat_own)
 ```
 
 

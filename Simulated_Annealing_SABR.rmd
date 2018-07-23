@@ -1,0 +1,213 @@
+---
+title: "Simulated_Annealing_SABR"
+author: "Novdano"
+date: "July 22, 2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+library("plotly")
+```
+Load data
+```{r}
+may = read.delim("GOOG04062013.dat",header=FALSE,sep=",")
+sep = read.delim("GOOG09202013.dat",header=FALSE,sep=",")
+jan = read.delim("GOOG01172014.dat",header=FALSE,sep=",")
+
+
+
+option_data = rbind(rbind(may, sep), jan)
+mkt_px = option_data[,5]
+num_data = length(mkt_px)
+```
+
+
+SABR closed form
+```{r}
+IV_SABR <- function(f, K, t, alpha, beta, rho, nu){
+  first = alpha/((f*K)^((1-beta)/2) *(1 + (((1-beta)^2)/24) *(log(f/K))^2 + ((1-beta^4)/1920)*log(f/K)^4))
+  z = (nu/alpha) * ((f*K)^((1-beta)/2)) * log(f/K)
+  chi_z = log((sqrt(1-2*rho*z+z^2) + z - rho)/(1-rho))
+  last = 1 + (((1-beta)^2/24) * alpha^2/((f*K)^(1-beta)) + (1/4) * ((rho*beta*nu*alpha)/((f*K)^((1-beta)/2))) + ((2-3*rho^2)/24)*nu^2)*t
+  return (first * (z/chi_z) * last)
+}
+
+BS_V0 <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T)) 
+  d2 <- (log(S_0/K) + (r - sigma^2/2)*T)/(sigma * sqrt(T)) 
+  res <- S_0 * pnorm(d1) - K*pnorm(d2) * exp(-r * T)
+  return(res)
+}
+
+SABR_MC_Call <- function(S_0, K, r, alpha_0, beta, rho, nu, T, M, N){
+  payoff <- 0
+  for(i in 1:M){
+    S <- S_0
+    alpha <- alpha_0
+    for(n in 1:N){
+      W1 <- rnorm(1)
+      W2 <- rnorm(1)
+      S <- S + r*S*(T/N) + alpha*S^beta*sqrt(T/N)*W1*(exp((-r*(T-n*(T/N)))))^(1-beta)
+      alpha <- alpha + nu*alpha*(rho * W1 + sqrt(1-rho^2)*W2)*sqrt(T/N)
+    }
+    if (S>K){
+      payoff <- payoff + S-K
+    }
+  }
+  return ((payoff/M) * (1+r*(T/N))^-N)
+}
+```
+
+
+MSE Code
+```{r}
+
+MSE <- function(vec1, vec2){
+  ms <- (vec1-vec2)^2
+  return ((sum(ms))^0.5)/length(vec1)
+}
+
+
+GOOGL_Opt_SABR <- function(param_vectors){
+  alpha <- param_vectors[[1]]
+  rho <- param_vectors[[2]]
+  nu <- param_vectors[[3]]
+  sv_est = rep(0, num_data)
+  for (i in 1:num_data){
+    r = option_data[i,1]
+    tau = option_data[i,2]
+    S = option_data[i,3]
+    K = option_data[i,4]
+    sv_est[[i]] = BS_V0(S, K, r, IV_SABR(S * exp(r*tau), K, tau, alpha, 1, rho, nu), tau)
+  }
+  return (MSE(sv_est, mkt_px))
+}
+```
+
+
+```{r}
+neighbor <- function(param_vectors){
+  alpha <- param_vectors[[1]]
+  rho <- param_vectors[[2]]
+  nu <- param_vectors[[3]]
+  sdA <- 0.01
+  sdR <- 0.1
+  sdN <- 0.1
+  newA <- rnorm(1, alpha, sdA)
+  newR <- rnorm(1, rho, sdR)
+  newN <- rnorm (1, nu, sdN)
+  while (newA<0 || newA>1 || newR< -1 || newR>1 || newN<0 || newN>1){
+    sdA <- sdA/2
+    sdR <- sdR/2
+    sdN <- sdN/2
+    newA <- rnorm(1, alpha, sdA)
+    newR <- rnorm(1, rho, sdR)
+    newN <- rnorm (1, nu, sdN)
+  }
+  return (c(newA, newR, newN))
+}
+
+acceptance_probability <- function(old_cost, new_cost, T){
+  return (exp((old_cost-new_cost)/T))
+}
+
+
+simulated_annealing_SABR <- function(param_vectors){
+  alpha <- param_vectors[[1]]
+  rho <- param_vectors[[2]]
+  nu <- param_vectors[[3]]
+  sol <- param_vectors
+  old_cost <- GOOGL_Opt_SABR(c(alpha, rho, nu))
+  T <- 1.0
+  T_min <- 1e-4
+  alpha <- 0.9
+  while (T > T_min){
+    for (i in 1: 100){
+      new_sol <- neighbor(sol)
+      #print(new_sol)
+      new_cost <- GOOGL_Opt_SABR(new_sol)
+      ap = acceptance_probability(old_cost, new_cost, T)
+      if (ap > runif(1, 0, 1)){
+        sol <- new_sol
+        old_cost <- new_cost 
+      }
+    }
+    T <- T * alpha
+  }
+  return (c(sol, old_cost))
+}
+```
+
+```{r}
+simulated_annealing_SABR(c(0.2, -0.3, 0.4))
+simulated_annealing_SABR(c(0.1, 0.5, 0.4))
+simulated_annealing_SABR(c(0.8, 0.5, 0.8))
+```
+```{r}
+SABR_px <- rep(0, num_data)
+for(i in 1: num_data){
+  r = option_data[i,1]
+  tau = option_data[i,2]
+  S = option_data[i,3]
+  K = option_data[i,4]
+  SABR_px[[i]] <- BS_V0(S, K, r, IV_SABR(S * exp(r*tau), K, tau, 0.2057790, 1, -0.9999540, 0.6500922),tau)
+}
+SABR_px
+mkt_px
+
+```
+```{r}
+IV<- rep(0, 7)
+for(i in 1: 7){
+  r = option_data[i,1]
+  tau = option_data[i,2]
+  S = option_data[i,3]
+  K = option_data[i,4]
+  IV[[i]] <- IV_SABR(S * exp(r*tau), K, tau, 0.2057790, 1, -0.9999540, 0.6500922)
+}
+
+plot(option_data[1:7, 4], IV)
+
+```
+
+```{r}
+option_data[1:7,4]
+```
+
+```{r}
+strikes <- seq(20,70,5)
+#C_px <- rep(0,length(strikes))
+#SABR_px <- rep(0,length(strikes))
+IV<- rep(0, length(strikes))
+for (i in 1:length(strikes)){
+  K <- strikes[[i]]
+  IV[[i]] <- IV_SABR(50 * exp(0.02*tau), K, 1, 0.2057790, 1, -0.9999540, 0.6500922)
+  #SABR_px[[i]] <- BS_V0(50, K, 0.02, IV_SABR(50 * exp(0.02*tau), K, 1, 0.2057790, 1, -0.9999540, 0.6500922),1)
+  #MC_px[[i]] <- SABR_MC_Call(50,K, 0.02, 0.2057790, 1, -0.9999540, 0.6500922, 1, 100,100)
+}
+
+plot(strikes, IV, "l", col="red")
+
+```
+
+
+Error_function
+```{r}
+alphas <- seq(0,1,0.1)
+rhos <- seq(-1,1,0.1)
+errors <- matrix(0, nrow=length(alphas), ncol=length(rhos))
+for (a in 1:length(alphas)){
+  for (r in 1:length(rhos)){
+    errors[a,r] <- GOOGL_Opt_SABR(c(alphas[[a]], rhos[[r]], 0.6500922)) 
+  }
+}
+
+plot_ly() %>% add_surface(x=rhos, y=alphas, z=errors)
+```
+
+
