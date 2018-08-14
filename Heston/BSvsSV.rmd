@@ -104,19 +104,22 @@ legend("topright",
 
 ```{r}
 start <- Sys.time()
-Ks <- c(30:50)
+Ks <- c(30)
 BS <- rep(0,length(Ks))
 #Hes <- rep(0,length(Ks))
 for(i in 1:length(Ks)){
   K = Ks[[i]]
-  BS[[i]] <- MC_BSV0(init_price, K, r, sigma, T, 1000,1000)
+  BS[[i]] <- MC_BSV0(init_price, K, r, sigma, T, 10000,10000)
+  print(BS[[i]])
   #Hes[[i]] <-  MC_SV0(init_price, K, r, sigma^2, 1, 0.1, 0.001 ,-0, 1, T, 1000, 1000)
 }
 end <- Sys.time()
 
+plot(Ks, BS, "l")
 end-start
 
 
 ```
+
 
 

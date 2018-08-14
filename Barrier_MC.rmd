@@ -1,0 +1,119 @@
+---
+title: "Barrier Monte Carlo"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library("NMOF")
+```
+
+
+```{r}
+stock <- read.csv("MSFT_Data/MSFT_Equity.csv")
+stock_px <- na.omit(stock[,2])
+```
+
+BS
+```{r}
+BS_Call <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T))
+  d2 <- (log(S_0/K) + (r - sigma^2/2)*T)/(sigma * sqrt(T))
+  res <- S_0 * pnorm(d1) - K*pnorm(d2) * exp(-r * T)
+  return(res)
+}
+
+BS_Digital <- function(S_0, K, r, sigma, T){
+  d2 <- (log(S_0/K) + (r - sigma^2/2)*T)/(sigma * sqrt(T))
+  return(pnorm(d2) * exp(-r*(T)))
+}
+
+BS_UpOut <- function(S_0, K, U, r, sigma,T){
+  alpha <- 0.5*(1-r/(0.5*sigma^2))
+  return (BS_Call(S_0, K, r,sigma, T) - BS_Call(S_0, U, r,sigma, T) - (U-K)*BS_Digital(S_0, U, r, sigma, T) - ((S_0/U)^(2*alpha))*(BS_Call(U^2/S_0, K, r,sigma, T) - BS_Call(U^2/S_0, U, r,sigma, T) + (U-K) * BS_Digital(U^2/S_0, U, r, sigma, T)))
+}
+
+BS_UpOut2 <- function(S_0, K, U, r, sigma,T){
+  lambda <- (r+ 0.5*sigma^2) / (sigma^2)
+  x1 <- log(S_0/U)/(sigma*sqrt(T))+lambda*sigma*sqrt(T)
+  y1 <- log(U/S_0)/(sigma*sqrt(T))+lambda*sigma*sqrt(T)
+  y<- log((U^2)/(S_0*K))/(sigma*sqrt(T))+lambda*sigma*sqrt(T)
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T))
+  d2 <- (log(S_0/K) + (r - sigma^2/2)*T)/(sigma * sqrt(T))
+  first <- S_0*(pnorm(d1)-pnorm(x1)+(U/S_0)^(2*lambda)*(pnorm(-y)-pnorm(-y1)))
+  second <- K*exp(-r*T)*(-pnorm(d2)+pnorm(x1-sigma*sqrt(T))-((U/S_0)^(2*lambda-2))*(pnorm(-y+sigma*sqrt(T))-pnorm(-y1+sigma*sqrt(T))))
+  return (first+second)
+}
+
+
+
+IV_SABR <- function(f, K, t, alpha, beta, rho, nu){
+  first = alpha/((f*K)^((1-beta)/2) *(1 + (((1-beta)^2)/24) *(log(f/K))^2 + ((1-beta^4)/1920)*log(f/K)^4))
+  z = (nu/alpha) * ((f*K)^((1-beta)/2)) * log(f/K)
+  chi_z = log((sqrt(1-2*rho*z+z^2) + z - rho)/(1-rho))
+  last = 1 + (((1-beta)^2/24) * alpha^2/((f*K)^(1-beta)) + (1/4) * ((rho*beta*nu*alpha)/((f*K)^((1-beta)/2))) + ((2-3*rho^2)/24)*nu^2)*t
+  return (first * (z/chi_z) * last)
+}
+```
+
+
+
+
+
+
+```{r}
+SABR_MC_UpOut_Call <- function(S_0, K, U, r, alpha_0, beta, rho, nu, T, M, N){
+  payoff <- 0
+  for(i in 1:M){
+    S <- S_0
+    alpha <- alpha_0
+    flag <- TRUE
+    for(n in 1:N){
+      W1 <- rnorm(1)
+      W2 <- rnorm(1)
+      S <- S + r*S*(T/N) + alpha*S^beta*sqrt(T/N)*W1*(exp((-r*(T-n*(T/N)))))^(1-beta)
+      alpha <- alpha + nu*alpha*(rho * W1 + sqrt(1-rho^2)*W2)*sqrt(T/N)
+      if (S > U){
+        flag <- FALSE
+      }
+    }
+    if (!flag && S>K){
+      payoff <- payoff + S-K
+    }
+  }
+  return ((payoff/M) * (1+r*(T/N))^-N)
+}
+```
+
+
+
+```{r}
+alpha <- 0.1645685
+beta <- 1
+rho <- 0.8180933
+nu <- 0.6794907
+
+
+MC <- rep(0, length(stock_px))
+CF <-  rep(0, length(stock_px))
+for (i in 1:length(stock_px)){
+  MC[[i]] <- SABR_MC_UpOut_Call(stock_px[[i]], 100, 105, 0.0175, alpha, beta, rho, nu, 1, 1000, 1000)
+  CF[[i]] <- BS_UpOut(stock_px[[i]], 100, 105, 0.0175, IV_SABR(stock_px[[i]]*exp(0.0175*1),100, 1, alpha, beta, rho, nu),1)
+  print(CF[[i]])
+}
+print(MC)
+print(CF)
+
+plot(1:length(stock_px), MC, "l",col="red")
+lines(1:length(stock_px), CF, "l", col="green")
+
+```
+
+
+
+
+

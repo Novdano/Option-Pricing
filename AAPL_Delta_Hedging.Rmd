@@ -1,0 +1,202 @@
+---
+title: "AAPL_Delta_Hedging"
+author: "Novdano"
+date: "July 26, 2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library("NMOF")
+library("readxl")
+```
+
+
+Black Scholes
+```{r}
+BS_V0 <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T))
+  d2 <- (log(S_0/K) + (r - sigma^2/2)*T)/(sigma * sqrt(T))
+  res <- S_0 * pnorm(d1) - K*pnorm(d2) * exp(-r * T)
+  return(res)
+}
+
+vegaBS <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T))
+  return (S_0 * sqrt(T) * pnorm(d1))
+}
+
+deltaBS <- function(S_0, K, r, sigma, T){
+  d1 <- (log(S_0/K) + (r + sigma^2/2)*T)/(sigma * sqrt(T))
+  res <- pnorm(d1)
+  return(res)
+}
+
+```
+
+Heston
+```{r}
+hestonDeltaApprox <- function(S, K, tau, r, vol, theta, rho, kappa, miu, delta){
+  return((callHestoncf(S+delta, K, tau, r, 0 ,vol, theta, rho, kappa, miu)-callHestoncf(S-delta, K, tau, r, 0 ,vol, theta, rho, kappa, miu))/(2*delta))
+}
+```
+
+
+SABR
+```{r}
+IV_SABR <- function(f, K, t, alpha, beta, rho, nu){
+  first = alpha/((f*K)^((1-beta)/2) *(1 + (((1-beta)^2)/24) *(log(f/K))^2 + ((1-beta^4)/1920)*log(f/K)^4))
+  z = (nu/alpha) * ((f*K)^((1-beta)/2)) * log(f/K)
+  chi_z = log((sqrt(1-2*rho*z+z^2) + z - rho)/(1-rho))
+  last = 1 + (((1-beta)^2/24) * alpha^2/((f*K)^(1-beta)) + (1/4) * ((rho*beta*nu*alpha)/((f*K)^((1-beta)/2))) + ((2-3*rho^2)/24)*nu^2)*t
+  return (first * (z/chi_z) * last)
+}
+
+SABR_V0 <- function(S, K, r, T, alpha, beta, rho, nu){
+  return (BS_V0(S, K, r, IV_SABR(S*exp(r*T), K, T, alpha, beta, rho, nu), T))
+}
+
+deltaSABR <- function(S, K, r, T, alpha, beta, rho, nu){
+  delta <- 1e-3
+  return (deltaBS(S*exp(r*T), K, r,  IV_SABR(S*exp(r*T), K, T, alpha, beta, rho, nu), T) + vegaBS(S*exp(r*T), K, r,  IV_SABR(S*exp(r*T), K, T, alpha, beta, rho, nu), T) * ((IV_SABR(S*exp(r*T)+delta, K, T, alpha, beta, rho, nu) - IV_SABR(S*exp(r*T)-delta, K, T, alpha, beta, rho, nu)) / (2*delta)) * rho * nu/(S*exp(r*T)^beta))
+}
+
+alpha <- 0.1645685
+beta <- 1
+rho <- 0.8180933
+nu <- 0.6794907
+```
+
+Compute returns
+```{r}
+hist_returns <- function(px){
+  N <- length(px)
+  ret <- rep(0,N-1)
+  for (i in 2:N){
+    ret[[i-1]] <- log(px[[i]]/px[[i-1]])
+  }
+  return (ret)
+}
+```
+
+
+Read Data
+```{r}
+itm <- read_excel("AAPL_Data/AAPL_Calls_081718.xlsx",1)
+atm <- read_excel("AAPL_Data/AAPL_Calls_081718.xlsx",1)
+otm <- read_excel("AAPL_Data/AAPL_Calls_081718.xlsx",1)
+stock <- read_excel("AAPL_Data/AAPL_1Year_20180725.xlsx")
+hist<- stock[1:177,]
+stock <- stock[177:290,]
+
+itm_px <- unlist(itm[,2])
+atm_px<- unlist(atm[,2])
+otm_px <- unlist(otm[,2])
+stock_px <- na.omit(unlist(stock[,2]))
+hist_px<- unlist(unlist(hist[,2]))
+
+atm_delta <- na.omit(unlist(atm[,4]))
+itm_delta <- unlist(itm[,4])
+otm_delta <- unlist(otm[,4])
+
+print(length(atm_delta))
+print(length(stock_px))
+print(atm)
+print(stock)
+```
+
+Function to copmpare delta
+```{r}
+compare_delta <- function(hist_px, stock, stock_px, opt_mkt_px, mkt_delta, K, tau, r){
+  num_option <- 100
+  #Long one call, hedge with stock
+  BS_IV <- sd(hist_returns(hist_px)) * sqrt(252)
+  delta_bs <- deltaBS(stock_px[[1]], K, r, BS_IV, tau) * num_option
+  delta_SABR <- deltaSABR(stock_px[[1]], K, r, tau, alpha, beta, rho, nu) * num_option
+  delta_mkt <- mkt_delta[[1]] * num_option
+  #current value of portfolio
+  port_bs <- opt_mkt_px[[1]]*num_option - delta_bs * stock_px[[1]]
+  port_SABR <- opt_mkt_px[[1]]*num_option - delta_SABR * stock_px[[1]]
+  port_mkt <- opt_mkt_px[[1]]*num_option - delta_mkt * stock_px[[1]]
+  #daily profit and loss
+  daily_pnl_bs <- rep(0,length(stock_px))
+  daily_pnl_mkt <- rep(0,length(stock_px))
+  daily_pnl_SABR <- rep(0, length(stock_px))
+  print(port_bs)
+  daily_pnl_bs[[1]] <- -port_bs
+  daily_pnl_mkt[[1]] <- -port_mkt
+  daily_pnl_SABR[[1]] <- -port_SABR
+  deltas_bs <- rep(0,length(stock_px))
+  deltas_bs[[1]] <- delta_bs/num_option
+  deltas_SABR <- rep(0,length(stock_px))
+  deltas_SABR[[1]] <- delta_SABR/num_option
+  stock_held_BS <- rep(0,length(stock_px))
+  stock_held_SABR <- rep(0, length(stock_px))
+  stock_held_mkt <- rep(0, length(stock_px))
+  stock_held_BS[[1]] <- -delta_bs
+  stock_held_mkt[[1]] <- -delta_mkt
+  stock_held_SABR[[1]] <- -delta_SABR
+  for (i in 2:length(stock_px)){
+    new_vol <- c(hist_px[i:length(hist_px)], head(stock_px,i-1))
+    new_deltaBS <- deltaBS(stock_px[[i]], K, r, sd(new_vol), tau - i/252)*num_option
+    new_deltaSABR <- deltaSABR(stock_px[[i]], K, r, tau - i/252, alpha, beta, rho, nu)*num_option
+    new_deltaMkt <- mkt_delta[[i]]*num_option
+    delta_bs <- new_deltaBS + stock_held_BS[[i-1]]
+    delta_SABR <- new_deltaSABR + stock_held_SABR[[i-1]]
+    delta_mkt <- new_deltaMkt + stock_held_mkt[[i-1]]
+    port_bs <- port_bs - delta_bs * stock_px[[i]] + (opt_mkt_px[[i]] - opt_mkt_px[[i-1]])*num_option + num_option*stock_held_BS[[i-1]]*(stock_px[[i]] - stock_px[[i-1]])
+    port_SABR <- port_SABR - delta_SABR * stock_px[[i]] + (opt_mkt_px[[i]] - opt_mkt_px[[i-1]])*num_option + num_option*stock_held_BS[[i-1]]*(stock_px[[i]] - stock_px[[i-1]])
+    port_mkt <- port_mkt - delta_mkt * stock_px[[i]] + (opt_mkt_px[[i]] - opt_mkt_px[[i-1]])*num_option + num_option*stock_held_BS[[i-1]]*(stock_px[[i]] - stock_px[[i-1]])
+    daily_pnl_bs[[i]] <- -port_bs
+    daily_pnl_SABR[[i]] <- -port_SABR
+    daily_pnl_mkt[[i]] <- -port_mkt
+    deltas_bs[[i]] <- new_deltaBS/num_option
+    deltas_SABR[[i]] <- new_deltaSABR/num_option
+    stock_held_BS[[i]] <- -delta_bs + stock_held_BS[[i-1]]
+    stock_held_SABR[[i]] <- -delta_SABR + stock_held_SABR[[i-1]]
+    stock_held_mkt[[i]] <- -delta_mkt + stock_held_mkt[[i-1]]
+  }
+  plot(1:length(stock_px),daily_pnl_mkt,col="red", "l", ylab="PnL", xlab="Time")
+  lines(1:length(stock_px), daily_pnl_bs, col="green", "l")
+  lines(1:length(stock_px), daily_pnl_SABR, col="blue", "l")
+  legend("topright",
+         c("Market","BlackScholes", "SABR"),
+         fill=c("red","green", "blue"))
+  
+  plot(1:length(stock_px), mkt_delta, col="red", "l",ylab="Delta", xlab="Time")
+  lines(1:length(stock_px), deltas_bs, col="green", "l")
+  lines(1:length(stock_px), deltas_SABR, col="blue", "l")
+  legend("topright",
+         c("Market","BlackScholes", "SABR"),
+         fill=c("red","green", "blue"))
+  
+  plot(1:length(stock_px), stock_held_mkt, col="red", "l",ylab="Stock Held", xlab="Time")
+  lines(1:length(stock_px), stock_held_BS, col="green", "l")
+  lines(1:length(stock_px), stock_held_SABR, col="blue", "l")
+  legend("topleft",
+         c("Market","BlackScholes", "SABR"),
+         fill=c("red","green", "blue"))
+}
+
+
+```
+
+
+```{r}
+
+compare_delta(hist_px, stock, stock_px, atm_px, atm_delta, 190, length(atm_px)/252, 0.0175)
+
+```
+
+
+
+
+
+
+
+
+
+
